@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  /* Mediterrane Piazza-106-Palette */
+  --color-brand-cream: #faf5ea;
+  --color-brand-cream-dark: #ecdfc4;
+  --color-brand-brown: #7a5640;
+  --color-brand-brown-dark: #573d2c;
+  --color-brand-teal: #0b6e6e;
+  --color-brand-teal-dark: #06403f;
+  --color-brand-turquoise: #00a1a1;
+  --color-brand-orange: #ff7a50;
+  --color-brand-orange-dark: #e05a32;
+  --color-brand-navy: #1b2740;
+
+  --color-status-free: #2f9e58;
+  --color-status-free-bg: #e7f6ec;
+  --color-status-reserved: #d8412f;
+  --color-status-reserved-bg: #fbe9e6;
+  --color-status-occupied: #e2701f;
+  --color-status-occupied-bg: #fdedde;
+  --color-status-locked: #767c88;
+  --color-status-locked-bg: #eceef1;
+
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-inter);
+}
+
+:root {
+  --background: var(--color-brand-cream);
+  --foreground: var(--color-brand-navy);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), Arial, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+/* Ruhiges, konsistentes Fokus-Outline statt browser-default */
+:focus-visible {
+  outline: 2px solid var(--color-brand-teal);
+  outline-offset: 2px;
+}
+
+/* Grössere Tap-Ziele & Scrollverhalten für iPad/Tablet im Admin-Bereich */
+@media (pointer: coarse) {
+  button, a[role="button"] {
+    touch-action: manipulation;
+  }
+}
