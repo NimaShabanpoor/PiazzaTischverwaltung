@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckCircle2, Mail } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -8,10 +6,8 @@ import type { ReservationConfirmation } from "@/lib/actions/customer";
 
 export function ConfirmationScreen({
   confirmation,
-  onReset,
 }: {
   confirmation: ReservationConfirmation;
-  onReset: () => void;
 }) {
   return (
     <div className="flex flex-col items-center py-6 text-center">
@@ -57,9 +53,9 @@ export function ConfirmationScreen({
       </p>
 
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Button variant="outline" onClick={onReset}>
-          Weitere Reservation
-        </Button>
+        <Link href="/reservieren">
+          <Button variant="outline">Weitere Reservation</Button>
+        </Link>
         <Link href="/">
           <Button variant="ghost">Zur Startseite</Button>
         </Link>

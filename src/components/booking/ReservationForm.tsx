@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarDays, Loader2, User, Users, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
 import { ContactFields, type ContactData } from "./ContactFields";
-import { ConfirmationScreen } from "./ConfirmationScreen";
 import { RequestSentScreen } from "./RequestSentScreen";
-import { submitReservation, type ReservationConfirmation } from "@/lib/actions/customer";
+import { submitReservation } from "@/lib/actions/customer";
 import { submitGroupRequest, type GroupRequestConfirmation } from "@/lib/actions/groupRequests";
 import {
   CLOSING_TIME,
@@ -63,9 +63,9 @@ export function ReservationForm({
     contact: { customerName: "", customerPhone: "", customerEmail: "", note: "" },
   };
 
+  const router = useRouter();
   const [state, setState] = useState<FormState>(initialState);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<ReservationConfirmation | null>(null);
   const [requestSent, setRequestSent] = useState<GroupRequestConfirmation | null>(null);
   const [availabilityKey, setAvailabilityKey] = useState(0);
   const [isPending, startTransition] = useTransition();
@@ -117,8 +117,12 @@ export function ReservationForm({
           partySize: state.partySize,
           ...contact,
         });
-        if (res.ok) setRequestSent(res.data);
-        else setSubmitError(res.error);
+        if (res.ok) {
+          setRequestSent(res.data);
+          window.scrollTo({ top: 0 });
+        } else {
+          setSubmitError(res.error);
+        }
       });
       return;
     }
@@ -133,7 +137,8 @@ export function ReservationForm({
         ...contact,
       });
       if (res.ok) {
-        setConfirmation(res.data);
+        // Eigene Bestätigungsseite statt Inline-Meldung weiter unten im Formular.
+        router.push(`/reservieren/bestaetigt?code=${encodeURIComponent(res.data.confirmationCode)}`);
       } else {
         setSubmitError(res.error);
         // Bei einer Doppelbuchung: Tischauswahl leeren und Verfügbarkeit neu laden.
@@ -147,16 +152,14 @@ export function ReservationForm({
 
   function reset() {
     setState(initialState);
-    setConfirmation(null);
     setRequestSent(null);
     setSubmitError(null);
   }
 
-  if (confirmation || requestSent) {
+  if (requestSent) {
     return (
       <div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-sm sm:p-10">
-        {confirmation && <ConfirmationScreen confirmation={confirmation} onReset={reset} />}
-        {requestSent && <RequestSentScreen request={requestSent} onReset={reset} />}
+        <RequestSentScreen request={requestSent} onReset={reset} />
       </div>
     );
   }
