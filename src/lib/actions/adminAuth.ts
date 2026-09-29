@@ -25,8 +25,10 @@ export async function loginAction(
     return { error: "Bitte Benutzername und Passwort angeben." };
   }
 
-  const user = await prisma.adminUser.findUnique({
-    where: { username: parsed.data.username },
+  // Gross-/Kleinschreibung beim Benutzernamen ignorieren: Handy-Tastaturen
+  // machen aus "chef" gerne automatisch "Chef".
+  const user = await prisma.adminUser.findFirst({
+    where: { username: { equals: parsed.data.username, mode: "insensitive" } },
   });
 
   // Bewusst dieselbe Fehlermeldung für "unbekannt" und "falsches Passwort",
