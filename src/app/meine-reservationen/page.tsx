@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2, LogOut, Search, Users, XCircle } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Loader2, LogOut, Search, Users, XCircle } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/Button";
 import { ErrorText, Input, Label } from "@/components/ui/Field";
@@ -63,6 +64,13 @@ export default function MeineReservationenPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-navy/60 hover:text-brand-navy"
+        >
+          <ArrowLeft size={16} />
+          Zurück zur Startseite
+        </Link>
         <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-10">
           {!session ? (
             <>
