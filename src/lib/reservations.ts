@@ -1,6 +1,7 @@
 import { Prisma, ReservationStatus, TableStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { combineDateAndTime, toDateISO, toTimeHHmm, zurichNow } from "./time";
+import { getClosedDay } from "./closedDays";
 
 export const ACTIVE_RESERVATION_STATUSES: ReservationStatus[] = [
   ReservationStatus.CONFIRMED,
@@ -65,6 +66,9 @@ export async function getAvailabilityForSlot(
   endTime: string,
   partySize: number,
 ): Promise<TableAvailability[]> {
+  // An geschlossenen Tagen (Ferien, Feiertag) ist online nichts buchbar.
+  if (await getClosedDay(dateISO)) return [];
+
   const start = combineDateAndTime(dateISO, startTime);
   const end = combineDateAndTime(dateISO, endTime);
 
@@ -161,6 +165,11 @@ export type ReservationWriteOptions = {
    * (z.B. bei Gruppen, für die Tische zusammengestellt werden).
    */
   enforceCapacity?: boolean;
+  /**
+   * false = der Chef darf auch an einem geschlossenen Tag (Ferien, Feiertag)
+   * eintragen, z.B. für einen privaten Anlass.
+   */
+  enforceClosedDay?: boolean;
 };
 
 export async function createReservation(
@@ -170,6 +179,17 @@ export async function createReservation(
   const enforceCapacity = options.enforceCapacity ?? true;
   const start = combineDateAndTime(input.date, input.startTime);
   const end = combineDateAndTime(input.date, input.endTime);
+
+  if (options.enforceClosedDay ?? true) {
+    const closed = await getClosedDay(input.date);
+    if (closed) {
+      throw new ReservationValidationError(
+        closed.reason
+          ? `An diesem Tag ist geschlossen (${closed.reason}).`
+          : "An diesem Tag ist geschlossen.",
+      );
+    }
+  }
 
   if (end <= start) {
     throw new ReservationValidationError("Die Bis-Zeit muss nach der Von-Zeit liegen.");

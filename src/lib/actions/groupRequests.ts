@@ -5,6 +5,7 @@ import { prisma } from "../prisma";
 import { requireAdminSession } from "../auth";
 import { groupRequestSchema } from "../validation";
 import { combineDateAndTime, zurichNow } from "../time";
+import { getClosedDay } from "../closedDays";
 import { queueGroupRequestDeclined, queueGroupRequestReceived } from "../notifications";
 import type { ActionResult } from "./customer";
 
@@ -37,6 +38,16 @@ export async function submitGroupRequest(
   const end = combineDateAndTime(parsed.data.date, parsed.data.endTime);
   if (start.getTime() < zurichNow().getTime()) {
     return { ok: false, error: "Anfragen für vergangene Zeiten sind nicht möglich." };
+  }
+
+  const closed = await getClosedDay(parsed.data.date);
+  if (closed) {
+    return {
+      ok: false,
+      error: closed.reason
+        ? `An diesem Tag ist geschlossen (${closed.reason}).`
+        : "An diesem Tag ist geschlossen.",
+    };
   }
 
   try {

@@ -63,6 +63,27 @@ export async function getGroupRequests() {
   return prisma.groupRequest.findMany({ orderBy: { start: "asc" } });
 }
 
+/** Anzahl aktiver Reservationen pro Tag eines Monats ("YYYY-MM"), für den Schliesstage-Kalender. */
+export async function getReservationCountsByDay(
+  monthISO: string,
+): Promise<Record<string, number>> {
+  const [year, month] = monthISO.split("-").map(Number);
+  const rangeStart = new Date(Date.UTC(year, month - 1, 1));
+  const rangeEnd = new Date(Date.UTC(year, month, 1));
+
+  const reservations = await prisma.reservation.findMany({
+    where: { start: { gte: rangeStart, lt: rangeEnd }, status: { not: "CANCELLED" } },
+    select: { start: true },
+  });
+
+  const counts: Record<string, number> = {};
+  for (const r of reservations) {
+    const key = r.start.toISOString().slice(0, 10);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
 /** Für den Zähler in der Admin-Navigation. */
 export async function countOpenGroupRequests() {
   return prisma.groupRequest.count({ where: { status: "OFFEN" } });

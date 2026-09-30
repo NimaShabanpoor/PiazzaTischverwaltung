@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Loader2, User, Users, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, CalendarOff, Loader2, User, Users, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
@@ -24,10 +24,10 @@ import {
   generateEndTimeOptions,
   timeToMinutes,
 } from "@/lib/time";
+import type { ClosedDayInfo } from "@/lib/closedDays";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+()/.\-\s]{6,}$/;
-const BOOKABLE_DAYS_AHEAD = 60;
 
 type FormState = {
   date: string;
@@ -49,9 +49,14 @@ function suggestEndTime(startTime: string): string {
 export function ReservationForm({
   todayISO,
   nowIso,
+  closedDays,
+  bookableDaysAhead,
 }: {
   todayISO: string;
   nowIso: string;
+  /** Schliesstage (Ferien, Feiertage) im buchbaren Zeitraum. */
+  closedDays: ClosedDayInfo[];
+  bookableDaysAhead: number;
 }) {
   const initialState: FormState = {
     date: todayISO,
@@ -72,11 +77,18 @@ export function ReservationForm({
 
   // Gruppen über der Online-Grenze wählen keinen Tisch, sondern senden eine Anfrage.
   const isRequest = (state.partySize ?? 0) > MAX_ONLINE_PARTY_SIZE;
+  const closedDay = closedDays.find((d) => d.date === state.date) ?? null;
   const timeChosen = !!state.date && !!state.startTime && !!state.endTime;
 
   function patchWhen(patch: WhenPatch) {
     setState((s) => {
       const next: FormState = { ...s, ...patch, tableId: null, tableNumber: null };
+      if (patch.date !== undefined && closedDays.some((d) => d.date === patch.date)) {
+        // Geschlossener Tag: Zeiten zurücksetzen.
+        next.startTime = "";
+        next.endTime = "";
+        return next;
+      }
       if (patch.startTime !== undefined) {
         // Bis-Zeit passend vorschlagen bzw. ungültige Auswahl korrigieren.
         next.endTime = patch.startTime ? suggestEndTime(patch.startTime) : "";
@@ -95,7 +107,11 @@ export function ReservationForm({
     EMAIL_RE.test(state.contact.customerEmail.trim());
 
   const canSubmit =
-    timeChosen && !!state.partySize && contactValid && (isRequest || !!state.tableId);
+    !closedDay &&
+    timeChosen &&
+    !!state.partySize &&
+    contactValid &&
+    (isRequest || !!state.tableId);
 
   function handleSubmit() {
     if (!canSubmit || !state.partySize) return;
@@ -175,8 +191,12 @@ export function ReservationForm({
         </p>
       </div>
 
+      {/*
+        Reihenfolge im DOM = Reihenfolge auf dem Handy:
+        Zeit/Personen → Tisch → Kontakt → Zusammenfassung mit Bestätigen-Button ganz unten.
+        Auf grossen Bildschirmen füllt das Raster daraus zwei Spalten.
+      */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-        {/* Linke Spalte: Zeit & Personen */}
         <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
           <div className="space-y-8 [&>section+section]:border-t [&>section+section]:border-brand-cream-dark [&>section+section]:pt-8">
             <Section
@@ -189,8 +209,9 @@ export function ReservationForm({
                 startTime={state.startTime}
                 endTime={state.endTime}
                 todayISO={todayISO}
-                maxDateISO={addDaysISO(todayISO, BOOKABLE_DAYS_AHEAD)}
+                maxDateISO={addDaysISO(todayISO, bookableDaysAhead)}
                 nowIso={nowIso}
+                closedDay={closedDay}
                 onChange={patchWhen}
               />
             </Section>
@@ -210,105 +231,47 @@ export function ReservationForm({
           </div>
         </div>
 
-        {/* Rechte Spalte: Tischauswahl + Zusammenfassung */}
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-teal/10 text-brand-teal">
-                <UtensilsCrossed size={20} />
+        <div className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-teal/10 text-brand-teal">
+              <UtensilsCrossed size={20} />
+            </span>
+            <h2 className="font-display text-lg font-semibold text-brand-navy">Tisch wählen</h2>
+          </div>
+
+          {closedDay ? (
+            <p className="flex items-start gap-2 rounded-2xl bg-status-reserved-bg p-4 text-sm text-status-reserved">
+              <CalendarOff size={18} className="mt-0.5 shrink-0" />
+              <span>
+                Am {formatDateDeCH(closedDay.date)} haben wir geschlossen
+                {closedDay.reason ? ` (${closedDay.reason})` : ""}.
               </span>
-              <h2 className="font-display text-lg font-semibold text-brand-navy">
-                Tisch wählen
-              </h2>
-            </div>
+            </p>
+          ) : isRequest ? (
+            <p className="rounded-2xl bg-status-occupied-bg/60 p-4 text-sm text-brand-navy/80">
+              Für Gruppen ab {MAX_ONLINE_PARTY_SIZE + 1} Personen stellen wir die Tische
+              individuell zusammen – die Tischauswahl entfällt bei Ihrer Anfrage.
+            </p>
+          ) : !timeChosen || !state.partySize ? (
+            <p className="rounded-2xl bg-brand-cream p-4 text-sm text-brand-navy/60">
+              Wählen Sie Datum und Uhrzeit – danach zeigen wir Ihnen die freien Tische.
+            </p>
+          ) : (
+            <TableChoice
+              date={state.date}
+              startTime={state.startTime}
+              endTime={state.endTime}
+              partySize={state.partySize}
+              value={state.tableId}
+              refreshKey={availabilityKey}
+              onSelect={(tableId, tableNumber) =>
+                setState((s) => ({ ...s, tableId, tableNumber }))
+              }
+            />
+          )}
+        </div>
 
-            {isRequest ? (
-              <p className="rounded-2xl bg-status-occupied-bg/60 p-4 text-sm text-brand-navy/80">
-                Für Gruppen ab {MAX_ONLINE_PARTY_SIZE + 1} Personen stellen wir die Tische
-                individuell zusammen – die Tischauswahl entfällt bei Ihrer Anfrage.
-              </p>
-            ) : !timeChosen || !state.partySize ? (
-              <p className="rounded-2xl bg-brand-cream p-4 text-sm text-brand-navy/60">
-                Wählen Sie links Datum und Uhrzeit – danach zeigen wir Ihnen die freien
-                Tische.
-              </p>
-            ) : (
-              <TableChoice
-                date={state.date}
-                startTime={state.startTime}
-                endTime={state.endTime}
-                partySize={state.partySize}
-                value={state.tableId}
-                refreshKey={availabilityKey}
-                onSelect={(tableId, tableNumber) =>
-                  setState((s) => ({ ...s, tableId, tableNumber }))
-                }
-              />
-            )}
-          </div>
-
-          <div className="rounded-3xl bg-brand-teal p-6 text-white shadow-sm">
-            <h2 className="font-display text-lg font-semibold">Ihre Reservation</h2>
-            <dl className="mt-4 space-y-2.5 text-sm">
-              <SummaryRow
-                label="Datum"
-                value={
-                  state.date
-                    ? `${formatWeekdayDe(state.date)}, ${formatDateDeCH(state.date)}`
-                    : null
-                }
-              />
-              <SummaryRow
-                label="Uhrzeit"
-                value={timeChosen ? `${state.startTime} – ${state.endTime} Uhr` : null}
-              />
-              <SummaryRow
-                label="Personen"
-                value={state.partySize ? String(state.partySize) : null}
-              />
-              <SummaryRow
-                label="Tisch"
-                value={
-                  isRequest
-                    ? "wird zugeteilt"
-                    : state.tableNumber
-                      ? `Tisch ${state.tableNumber}`
-                      : null
-                }
-              />
-            </dl>
-
-            {submitError && (
-              <p className="mt-4 rounded-xl bg-white p-3 text-sm font-medium text-status-reserved">
-                {submitError}
-              </p>
-            )}
-
-            <Button
-              size="lg"
-              className="mt-5 w-full"
-              onClick={handleSubmit}
-              disabled={!canSubmit || isPending}
-            >
-              {isPending ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : isRequest ? (
-                "Anfrage senden"
-              ) : (
-                "Reservation bestätigen"
-              )}
-            </Button>
-
-            {!canSubmit && (
-              <p className="mt-3 text-center text-xs text-white/70">
-                Bitte Zeit, Personen{isRequest ? "" : ", Tisch"} und Kontaktdaten ausfüllen.
-              </p>
-            )}
-          </div>
-        </aside>
-
-        {/* Linke Spalte, zweite Karte: Kontaktdaten */}
-        <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8 lg:col-start-1 lg:row-start-2">
+        <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
           <Section
             icon={<User size={20} />}
             title="Ihre Kontaktdaten"
@@ -321,6 +284,67 @@ export function ReservationForm({
               }
             />
           </Section>
+        </div>
+
+        <div className="rounded-3xl bg-brand-teal p-6 text-white shadow-sm lg:sticky lg:top-6">
+          <h2 className="font-display text-lg font-semibold">Ihre Reservation</h2>
+          <dl className="mt-4 space-y-2.5 text-sm">
+            <SummaryRow
+              label="Datum"
+              value={
+                state.date
+                  ? `${formatWeekdayDe(state.date)}, ${formatDateDeCH(state.date)}`
+                  : null
+              }
+            />
+            <SummaryRow
+              label="Uhrzeit"
+              value={timeChosen ? `${state.startTime} – ${state.endTime} Uhr` : null}
+            />
+            <SummaryRow
+              label="Personen"
+              value={state.partySize ? String(state.partySize) : null}
+            />
+            <SummaryRow
+              label="Tisch"
+              value={
+                isRequest
+                  ? "wird zugeteilt"
+                  : state.tableNumber
+                    ? `Tisch ${state.tableNumber}`
+                    : null
+              }
+            />
+          </dl>
+
+          {submitError && (
+            <p className="mt-4 rounded-xl bg-white p-3 text-sm font-medium text-status-reserved">
+              {submitError}
+            </p>
+          )}
+
+          <Button
+            size="lg"
+            className="mt-5 w-full"
+            onClick={handleSubmit}
+            disabled={!canSubmit || isPending}
+          >
+            {isPending ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : isRequest ? (
+              "Anfrage senden"
+            ) : (
+              "Reservation bestätigen"
+            )}
+          </Button>
+
+          {!canSubmit && (
+            <p className="mt-3 text-center text-xs text-white/70">
+              {closedDay
+                ? "An diesem Tag ist geschlossen – bitte anderes Datum wählen."
+                : `Bitte Zeit, Personen${isRequest ? "" : ", Tisch"} und Kontaktdaten ausfüllen.`}
+            </p>
+          )}
         </div>
       </div>
     </div>

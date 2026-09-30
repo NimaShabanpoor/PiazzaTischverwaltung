@@ -129,6 +129,11 @@ export const updateTableSchema = z.object({
   lockNote: z.string().trim().max(200).nullable().optional(),
 });
 
+export const closedDaySchema = z.object({
+  date: dateISO,
+  reason: z.string().trim().max(120).optional(),
+});
+
 export const loginSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),

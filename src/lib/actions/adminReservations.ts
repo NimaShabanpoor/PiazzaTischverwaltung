@@ -38,7 +38,10 @@ export async function createManualReservationAction(
   }
 
   try {
-    const reservation = await createReservation(parsed.data, { enforceCapacity: false });
+    const reservation = await createReservation(parsed.data, {
+      enforceCapacity: false,
+      enforceClosedDay: false,
+    });
     queueReservationConfirmation(reservation);
     revalidateReservationViews();
     return { ok: true, data: { id: reservation.id } };

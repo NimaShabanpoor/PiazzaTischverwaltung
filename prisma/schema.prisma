@@ -108,3 +108,15 @@ model AdminUser {
 
   @@map("admin_users")
 }
+
+/// Einzelne Tage, an denen das Restaurant geschlossen ist (Ferien, Feiertage).
+/// `date` ist ein reines Kalenderdatum als "YYYY-MM-DD" – dadurch sind keine
+/// Zeitzonen-Umrechnungen noetig.
+model ClosedDay {
+  id        String   @id @default(cuid())
+  date      String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@map("closed_days")
+}

@@ -1,7 +1,9 @@
 "use client";
 
+import { CalendarOff } from "lucide-react";
 import { Input, Label } from "@/components/ui/Field";
 import { generateEndTimeOptions, generateStartTimeOptions } from "@/lib/time";
+import type { ClosedDayInfo } from "@/lib/closedDays";
 
 const SELECT_CLASS =
   "w-full rounded-xl border-2 border-brand-cream-dark bg-white px-4 py-3 text-base text-brand-navy outline-none transition-colors focus:border-brand-teal disabled:bg-brand-cream disabled:text-brand-navy/40";
@@ -15,6 +17,7 @@ export function WhenFields({
   todayISO,
   maxDateISO,
   nowIso,
+  closedDay,
   onChange,
 }: {
   date: string;
@@ -23,12 +26,15 @@ export function WhenFields({
   todayISO: string;
   maxDateISO: string;
   nowIso: string;
+  /** Gesetzt, wenn das gewählte Datum ein Schliesstag ist. */
+  closedDay: ClosedDayInfo | null;
   onChange: (patch: WhenPatch) => void;
 }) {
   const isToday = date === nowIso.slice(0, 10);
   const nowTime = nowIso.slice(11, 16);
   const startOptions = generateStartTimeOptions().filter((t) => !isToday || t > nowTime);
   const endOptions = startTime ? generateEndTimeOptions(startTime) : [];
+  const isClosed = !!closedDay;
 
   return (
     <div className="grid gap-4 sm:grid-cols-3">
@@ -40,6 +46,7 @@ export function WhenFields({
           min={todayISO}
           max={maxDateISO}
           value={date}
+          invalid={isClosed}
           onChange={(e) => onChange({ date: e.target.value })}
         />
       </div>
@@ -49,7 +56,7 @@ export function WhenFields({
           id="res-start"
           className={SELECT_CLASS}
           value={startTime}
-          disabled={!date}
+          disabled={!date || isClosed}
           onChange={(e) => onChange({ startTime: e.target.value })}
         >
           <option value="">Bitte wählen…</option>
@@ -66,7 +73,7 @@ export function WhenFields({
           id="res-end"
           className={SELECT_CLASS}
           value={endTime}
-          disabled={!startTime}
+          disabled={!startTime || isClosed}
           onChange={(e) => onChange({ endTime: e.target.value })}
         >
           <option value="">Bitte wählen…</option>
@@ -78,7 +85,18 @@ export function WhenFields({
         </select>
       </div>
 
-      {isToday && startOptions.length === 0 && (
+      {isClosed && (
+        <p className="flex items-start gap-2 rounded-xl bg-status-reserved-bg p-3 text-sm text-status-reserved sm:col-span-3">
+          <CalendarOff size={18} className="mt-0.5 shrink-0" />
+          <span>
+            An diesem Tag haben wir geschlossen
+            {closedDay?.reason ? ` (${closedDay.reason})` : ""}. Bitte wählen Sie ein anderes
+            Datum.
+          </span>
+        </p>
+      )}
+
+      {!isClosed && isToday && startOptions.length === 0 && (
         <p className="rounded-xl bg-status-locked-bg p-3 text-sm text-brand-navy/70 sm:col-span-3">
           Für heute sind keine Uhrzeiten mehr verfügbar. Bitte wählen Sie ein anderes Datum.
         </p>

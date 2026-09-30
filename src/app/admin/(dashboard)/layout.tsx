@@ -1,4 +1,12 @@
-import { LayoutGrid, LogOut, Table2, CalendarDays, BarChart3, Inbox } from "lucide-react";
+import {
+  LayoutGrid,
+  LogOut,
+  Table2,
+  CalendarDays,
+  CalendarOff,
+  BarChart3,
+  Inbox,
+} from "lucide-react";
 import { getAdminSession } from "@/lib/auth";
 import { logoutAction } from "@/lib/actions/adminAuth";
 import { countOpenGroupRequests } from "@/lib/adminData";
@@ -37,6 +45,11 @@ export default async function AdminDashboardLayout({
               icon={<Inbox size={18} />}
               label="Anfragen"
               badge={openRequests}
+            />
+            <AdminNavLink
+              href="/admin/schliesstage"
+              icon={<CalendarOff size={18} />}
+              label="Schliesstage"
             />
             <AdminNavLink href="/admin/tische" icon={<Table2 size={18} />} label="Tische" />
             <AdminNavLink
