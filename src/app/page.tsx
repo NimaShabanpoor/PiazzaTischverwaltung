@@ -89,6 +89,13 @@ export default function HomePage() {
 
       <footer className="bg-brand-brown-dark py-8 text-center text-sm text-white/70">
         © {new Date().getFullYear()} {RESTAURANT_INFO.name}, {RESTAURANT_INFO.city}
+        {/* Bewusst unauffällig: Der Admin-Zugang ist nur für den Chef gedacht. */}
+        <Link
+          href="/admin/login"
+          className="ml-3 text-xs text-white/25 hover:text-white/60"
+        >
+          Admin
+        </Link>
       </footer>
     </div>
   );

@@ -12,9 +12,6 @@ export function SiteHeader() {
           <Link href="/meine-reservationen" className="hover:text-white">
             Meine Reservation
           </Link>
-          <Link href="/admin/login" className="hover:text-white">
-            Admin
-          </Link>
         </nav>
       </div>
     </header>
