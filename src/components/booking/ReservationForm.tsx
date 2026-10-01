@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
+import { DayOccupancy } from "./DayOccupancy";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
 import { submitReservation } from "@/lib/actions/customer";
@@ -214,6 +215,16 @@ export function ReservationForm({
                 closedDay={closedDay}
                 onChange={patchWhen}
               />
+              {state.date && !closedDay && (
+                <div className="mt-5">
+                  <DayOccupancy
+                    date={state.date}
+                    startTime={state.startTime}
+                    endTime={state.endTime}
+                    refreshKey={availabilityKey}
+                  />
+                </div>
+              )}
             </Section>
 
             <Section

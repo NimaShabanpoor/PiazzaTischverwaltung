@@ -1,12 +1,14 @@
 "use server";
 
-import { createReservationSchema, availabilityQuerySchema } from "../validation";
+import { createReservationSchema, availabilityQuerySchema, dayOccupancySchema } from "../validation";
 import {
   createReservation,
   getAvailabilityForSlot,
+  getDayOccupancy,
   ReservationConflictError,
   ReservationValidationError,
   type TableAvailability,
+  type TableDayOccupancy,
 } from "../reservations";
 import { queueReservationConfirmation } from "../notifications";
 import { shortConfirmationCode } from "../confirmationCode";
@@ -88,5 +90,20 @@ export async function submitReservation(
     }
     console.error("submitReservation failed", err);
     return { ok: false, error: "Reservation konnte nicht gespeichert werden. Bitte versuchen Sie es erneut." };
+  }
+}
+
+export async function fetchDayOccupancy(input: {
+  date: string;
+}): Promise<ActionResult<TableDayOccupancy[]>> {
+  const parsed = dayOccupancySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe." };
+  }
+  try {
+    return { ok: true, data: await getDayOccupancy(parsed.data.date) };
+  } catch (err) {
+    console.error("fetchDayOccupancy failed", err);
+    return { ok: false, error: "Belegung konnte nicht geladen werden." };
   }
 }

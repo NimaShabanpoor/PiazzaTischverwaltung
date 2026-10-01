@@ -1,6 +1,6 @@
 import { Prisma, ReservationStatus, TableStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { combineDateAndTime, toDateISO, toTimeHHmm, zurichNow } from "./time";
+import { addDaysISO, combineDateAndTime, toDateISO, toTimeHHmm, zurichNow } from "./time";
 import { getClosedDay } from "./closedDays";
 
 export const ACTIVE_RESERVATION_STATUSES: ReservationStatus[] = [
@@ -135,6 +135,63 @@ export async function getAvailabilityForSlot(
       status: table.status,
       available: true,
       reason: null,
+    };
+  });
+}
+
+export type TableDayOccupancy = {
+  id: string;
+  number: number;
+  seats: number;
+  /** Gesperrt = den ganzen Tag nicht buchbar. */
+  locked: boolean;
+  /** Belegte Zeiträume (HH:mm), sortiert. Bewusst ohne Gastdaten – für die öffentliche Ansicht. */
+  busy: { from: string; to: string }[];
+};
+
+/**
+ * Tagesübersicht für Gäste: Wann ist welcher Tisch schon belegt
+ * (Reservationen und manuell als besetzt markierte Zeitfenster)?
+ */
+export async function getDayOccupancy(dateISO: string): Promise<TableDayOccupancy[]> {
+  if (await getClosedDay(dateISO)) return [];
+
+  const dayStart = combineDateAndTime(dateISO, "00:00");
+  const dayEnd = combineDateAndTime(addDaysISO(dateISO, 1), "00:00");
+
+  const tables = await prisma.table.findMany({
+    where: { active: true },
+    orderBy: { number: "asc" },
+    include: {
+      reservations: {
+        where: {
+          status: { in: ACTIVE_RESERVATION_STATUSES },
+          start: { lt: dayEnd },
+          end: { gt: dayStart },
+        },
+        select: { start: true, end: true },
+      },
+    },
+  });
+
+  // Auf den Tag zuschneiden, damit z.B. über Mitternacht laufende Fenster passen.
+  const clip = (from: Date, to: Date) => ({
+    from: toTimeHHmm(from < dayStart ? dayStart : from),
+    to: to >= dayEnd ? "24:00" : toTimeHHmm(to),
+  });
+
+  return tables.map((table) => {
+    const busy = table.reservations.map((r) => clip(r.start, r.end));
+    if (overlapsBusyWindow(table, dayStart, dayEnd)) {
+      busy.push(clip(table.busyFrom ?? dayStart, table.busyUntil ?? dayEnd));
+    }
+    busy.sort((a, b) => a.from.localeCompare(b.from));
+    return {
+      id: table.id,
+      number: table.number,
+      seats: table.seats,
+      locked: table.status === TableStatus.GESPERRT,
+      busy,
     };
   });
 }
