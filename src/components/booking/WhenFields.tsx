@@ -10,10 +10,9 @@ import {
 } from "@/lib/time";
 import { MIN_RESERVATION_DURATION_MINUTES } from "@/lib/constants";
 import type { ClosedDayInfo } from "@/lib/closedDays";
-import type { SlotStatus } from "./useDayOccupancy";
 
-/** Reservierte Zeiten rot; "ausgebucht" ist zusätzlich nicht wählbar. */
-const RESERVED_OPTION_STYLE = { color: "var(--color-status-reserved)" };
+/** Ausgebuchte Zeiten (alle Tische belegt): rot und nicht wählbar. */
+const BOOKED_OPTION_STYLE = { color: "var(--color-status-reserved)" };
 
 const SELECT_CLASS =
   "w-full rounded-xl border-2 border-brand-cream-dark bg-white px-4 py-3 text-base text-brand-navy outline-none transition-colors focus:border-brand-teal disabled:bg-brand-cream disabled:text-brand-navy/40";
@@ -28,7 +27,7 @@ export function WhenFields({
   maxDateISO,
   nowIso,
   closedDay,
-  slotStatus,
+  isBooked,
   onChange,
 }: {
   date: string;
@@ -39,8 +38,8 @@ export function WhenFields({
   nowIso: string;
   /** Gesetzt, wenn das gewählte Datum ein Schliesstag ist. */
   closedDay: ClosedDayInfo | null;
-  /** Belegung des Zeitraums [from, to) – steuert die rote Markierung. */
-  slotStatus?: (from: string, to: string) => SlotStatus;
+  /** true, wenn im Zeitraum [from, to) kein passender Tisch mehr frei ist. */
+  isBooked?: (from: string, to: string) => boolean;
   onChange: (patch: WhenPatch) => void;
 }) {
   const isToday = date === nowIso.slice(0, 10);
@@ -76,7 +75,7 @@ export function WhenFields({
           {startOptions.map((t) => {
             // Massgebend ist die Mindestdauer ab dieser Von-Zeit.
             const minEnd = minutesToTime(timeToMinutes(t) + MIN_RESERVATION_DURATION_MINUTES);
-            return <TimeOption key={t} time={t} status={slotStatus?.(t, minEnd) ?? "frei"} />;
+            return <TimeOption key={t} time={t} booked={!!isBooked?.(t, minEnd)} />;
           })}
         </select>
       </div>
@@ -91,7 +90,7 @@ export function WhenFields({
         >
           <option value="">Bitte wählen…</option>
           {endOptions.map((t) => (
-            <TimeOption key={t} time={t} status={slotStatus?.(startTime, t) ?? "frei"} />
+            <TimeOption key={t} time={t} booked={!!isBooked?.(startTime, t)} />
           ))}
         </select>
       </div>
@@ -116,14 +115,10 @@ export function WhenFields({
   );
 }
 
-function TimeOption({ time, status }: { time: string; status: SlotStatus }) {
+function TimeOption({ time, booked }: { time: string; booked: boolean }) {
   return (
-    <option
-      value={time}
-      disabled={status === "ausgebucht"}
-      style={status === "frei" ? undefined : RESERVED_OPTION_STYLE}
-    >
-      {status === "ausgebucht" ? `${time} – ausgebucht` : time}
+    <option value={time} disabled={booked} style={booked ? BOOKED_OPTION_STYLE : undefined}>
+      {booked ? `${time} – ausgebucht` : time}
     </option>
   );
 }

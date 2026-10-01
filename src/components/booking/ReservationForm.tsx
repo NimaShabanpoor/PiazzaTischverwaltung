@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
-import { slotStatus, useDayOccupancy, type SlotStatus } from "./useDayOccupancy";
+import { isFullyBooked, useDayOccupancy } from "./useDayOccupancy";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
 import { submitReservation } from "@/lib/actions/customer";
@@ -91,14 +91,16 @@ export function ReservationForm({
   const closedDay = closedDays.find((d) => d.date === state.date) ?? null;
   const timeChosen = !!state.date && !!state.startTime && !!state.endTime;
 
-  // Tagesbelegung für rot markierte Uhrzeiten. Bei Gruppenanfragen (Tische werden
-  // individuell zusammengestellt) wird nichts gesperrt, nur als reserviert markiert.
+  // Tagesbelegung: Uhrzeiten, zu denen alle Tische belegt sind, werden rot und gesperrt.
+  // Gruppen (Tische werden zusammengestellt) zählen wie ein voller Tisch.
   const occupancy = useDayOccupancy(state.date && !closedDay ? state.date : null, availabilityKey);
-  const statusOf = (from: string, to: string): SlotStatus => {
-    const status = slotStatus(occupancy, state.partySize ?? 1, from, to);
-    return isRequest && status === "ausgebucht" ? "teilweise" : status;
-  };
-  const isBooked = (from: string, to: string) => statusOf(from, to) === "ausgebucht";
+  const isBooked = (from: string, to: string) =>
+    isFullyBooked(
+      occupancy,
+      Math.min(state.partySize ?? 1, MAX_ONLINE_PARTY_SIZE),
+      from,
+      to,
+    );
 
   function patchWhen(patch: WhenPatch) {
     setState((s) => {
@@ -234,7 +236,7 @@ export function ReservationForm({
                 maxDateISO={addDaysISO(todayISO, bookableDaysAhead)}
                 nowIso={nowIso}
                 closedDay={closedDay}
-                slotStatus={statusOf}
+                isBooked={isBooked}
                 onChange={patchWhen}
               />
             </Section>
