@@ -33,22 +33,29 @@ export function useDayOccupancy(
 }
 
 /**
- * true, wenn im Zeitraum [from, to) kein Tisch mit genug Plätzen frei ist.
- * Solange die Belegung noch lädt, gilt nichts als ausgebucht.
+ * - "frei": kein Tisch im Zeitraum reserviert
+ * - "teilweise": mindestens ein Tisch reserviert, aber noch ein passender frei
+ * - "ausgebucht": kein Tisch mit genug Plätzen mehr frei
  */
-export function isFullyBooked(
+export type SlotStatus = "frei" | "teilweise" | "ausgebucht";
+
+/**
+ * Status des Zeitraums [from, to) für die gegebene Personenzahl.
+ * Solange die Belegung noch lädt, gilt alles als frei.
+ */
+export function slotStatus(
   tables: TableDayOccupancy[] | null,
   partySize: number,
   from: string,
   to: string,
-): boolean {
-  if (!tables || tables.length === 0) return false;
+): SlotStatus {
+  if (!tables || tables.length === 0) return "frei";
   const a = timeToMinutes(from);
   const b = timeToMinutes(to);
-  return !tables.some(
-    (t) =>
-      !t.locked &&
-      t.seats >= partySize &&
-      t.busy.every((x) => timeToMinutes(x.to) <= a || timeToMinutes(x.from) >= b),
-  );
+  const isFree = (t: TableDayOccupancy) =>
+    t.busy.every((x) => timeToMinutes(x.to) <= a || timeToMinutes(x.from) >= b);
+
+  if (!tables.some((t) => !t.locked && t.seats >= partySize && isFree(t))) return "ausgebucht";
+  if (tables.some((t) => !t.locked && !isFree(t))) return "teilweise";
+  return "frei";
 }

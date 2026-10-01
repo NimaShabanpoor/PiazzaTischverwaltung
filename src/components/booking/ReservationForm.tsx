@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
-import { isFullyBooked, useDayOccupancy } from "./useDayOccupancy";
+import { slotStatus, useDayOccupancy, type SlotStatus } from "./useDayOccupancy";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
 import { submitReservation } from "@/lib/actions/customer";
@@ -92,10 +92,13 @@ export function ReservationForm({
   const timeChosen = !!state.date && !!state.startTime && !!state.endTime;
 
   // Tagesbelegung für rot markierte Uhrzeiten. Bei Gruppenanfragen (Tische werden
-  // individuell zusammengestellt) wird nichts als ausgebucht markiert.
+  // individuell zusammengestellt) wird nichts gesperrt, nur als reserviert markiert.
   const occupancy = useDayOccupancy(state.date && !closedDay ? state.date : null, availabilityKey);
-  const isBooked = (from: string, to: string) =>
-    isFullyBooked(occupancy, state.partySize ?? 1, from, to);
+  const statusOf = (from: string, to: string): SlotStatus => {
+    const status = slotStatus(occupancy, state.partySize ?? 1, from, to);
+    return isRequest && status === "ausgebucht" ? "teilweise" : status;
+  };
+  const isBooked = (from: string, to: string) => statusOf(from, to) === "ausgebucht";
 
   function patchWhen(patch: WhenPatch) {
     setState((s) => {
@@ -109,7 +112,7 @@ export function ReservationForm({
       if (patch.startTime !== undefined) {
         // Bis-Zeit passend vorschlagen bzw. ungültige Auswahl korrigieren.
         next.endTime = patch.startTime
-          ? suggestEndTime(patch.startTime, isRequest ? undefined : isBooked)
+          ? suggestEndTime(patch.startTime, isBooked)
           : "";
       } else if (patch.date !== undefined && next.startTime) {
         const valid = generateEndTimeOptions(next.startTime);
@@ -231,7 +234,7 @@ export function ReservationForm({
                 maxDateISO={addDaysISO(todayISO, bookableDaysAhead)}
                 nowIso={nowIso}
                 closedDay={closedDay}
-                isBooked={isRequest ? undefined : isBooked}
+                slotStatus={statusOf}
                 onChange={patchWhen}
               />
             </Section>
