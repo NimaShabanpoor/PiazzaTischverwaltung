@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, CalendarOff, Loader2, User, Users, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
-import { isFullyBooked, useDayOccupancy } from "./useDayOccupancy";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
-import { submitReservation } from "@/lib/actions/customer";
+import { fetchDayAvailability, submitReservation } from "@/lib/actions/customer";
 import { submitGroupRequest, type GroupRequestConfirmation } from "@/lib/actions/groupRequests";
 import {
   CLOSING_TIME,
@@ -26,6 +25,7 @@ import {
   timeToMinutes,
 } from "@/lib/time";
 import type { ClosedDayInfo } from "@/lib/closedDays";
+import type { SlotAvailability } from "@/lib/reservations";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+()/.\-\s]{6,}$/;
@@ -41,20 +41,21 @@ type FormState = {
 };
 
 /**
- * Schlägt eine Bis-Zeit vor (Standarddauer), begrenzt auf gültige Optionen.
- * Ist die Standarddauer schon ausgebucht, wird auf die längste freie Dauer gekürzt.
+ * Schlägt eine Bis-Zeit vor: möglichst die Standarddauer, aber nur unter den
+ * Zeiten, zu denen überhaupt noch ein Tisch frei ist.
  */
-function suggestEndTime(
-  startTime: string,
-  isBooked: (from: string, to: string) => boolean = () => false,
-): string {
+function suggestEndTime(startTime: string, slot: SlotAvailability | undefined): string {
   const options = generateEndTimeOptions(startTime);
+  const freeOptions = slot
+    ? slot.ends.filter((e) => e.freeTables > 0).map((e) => e.time)
+    : options;
+  const candidates = freeOptions.length > 0 ? freeOptions : options;
   const target = timeToMinutes(startTime) + DEFAULT_RESERVATION_DURATION_MINUTES;
-  const preferred =
-    options.find((t) => timeToMinutes(t) >= target) ?? options[options.length - 1] ?? "";
-  if (!preferred || !isBooked(startTime, preferred)) return preferred;
-  const free = options.filter((t) => t < preferred && !isBooked(startTime, t));
-  return free[free.length - 1] ?? preferred;
+  return (
+    candidates.find((t) => timeToMinutes(t) >= target) ??
+    candidates[candidates.length - 1] ??
+    ""
+  );
 }
 
 export function ReservationForm({
@@ -84,23 +85,26 @@ export function ReservationForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState<GroupRequestConfirmation | null>(null);
   const [availabilityKey, setAvailabilityKey] = useState(0);
+  const [slots, setSlots] = useState<SlotAvailability[] | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Gruppen über der Online-Grenze wählen keinen Tisch, sondern senden eine Anfrage.
   const isRequest = (state.partySize ?? 0) > MAX_ONLINE_PARTY_SIZE;
   const closedDay = closedDays.find((d) => d.date === state.date) ?? null;
+  const isClosed = !!closedDay;
   const timeChosen = !!state.date && !!state.startTime && !!state.endTime;
 
-  // Tagesbelegung: Uhrzeiten, zu denen alle Tische belegt sind, werden rot und gesperrt.
-  // Gruppen (Tische werden zusammengestellt) zählen wie ein voller Tisch.
-  const occupancy = useDayOccupancy(state.date && !closedDay ? state.date : null, availabilityKey);
-  const isBooked = (from: string, to: string) =>
-    isFullyBooked(
-      occupancy,
-      Math.min(state.partySize ?? 1, MAX_ONLINE_PARTY_SIZE),
-      from,
-      to,
-    );
+  // Belegung je Uhrzeit laden, damit besetzte Zeiten rot markiert werden können.
+  useEffect(() => {
+    if (isRequest || isClosed || !state.partySize || !state.date) return;
+    let cancelled = false;
+    fetchDayAvailability({ date: state.date, partySize: state.partySize }).then((res) => {
+      if (!cancelled && res.ok) setSlots(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.date, state.partySize, isRequest, isClosed, availabilityKey]);
 
   function patchWhen(patch: WhenPatch) {
     setState((s) => {
@@ -114,11 +118,16 @@ export function ReservationForm({
       if (patch.startTime !== undefined) {
         // Bis-Zeit passend vorschlagen bzw. ungültige Auswahl korrigieren.
         next.endTime = patch.startTime
-          ? suggestEndTime(patch.startTime, isBooked)
+          ? suggestEndTime(
+              patch.startTime,
+              slots?.find((slot) => slot.start === patch.startTime),
+            )
           : "";
       } else if (patch.date !== undefined && next.startTime) {
         const valid = generateEndTimeOptions(next.startTime);
-        if (!valid.includes(next.endTime)) next.endTime = suggestEndTime(next.startTime);
+        if (!valid.includes(next.endTime)) {
+          next.endTime = suggestEndTime(next.startTime, undefined);
+        }
       }
       return next;
     });
@@ -226,7 +235,7 @@ export function ReservationForm({
             <Section
               icon={<CalendarDays size={20} />}
               title="Wann möchten Sie kommen?"
-              description={`Wir sind täglich von ${OPENING_TIME} bis ${CLOSING_TIME} Uhr für Sie da.`}
+              description={`Wir servieren täglich von ${OPENING_TIME} bis ${CLOSING_TIME} Uhr.`}
             >
               <WhenFields
                 date={state.date}
@@ -236,7 +245,8 @@ export function ReservationForm({
                 maxDateISO={addDaysISO(todayISO, bookableDaysAhead)}
                 nowIso={nowIso}
                 closedDay={closedDay}
-                isBooked={isBooked}
+                slots={slots}
+                showAvailability={!isRequest}
                 onChange={patchWhen}
               />
             </Section>

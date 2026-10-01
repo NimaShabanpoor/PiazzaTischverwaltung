@@ -1,6 +1,13 @@
 import { Prisma, ReservationStatus, TableStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { addDaysISO, combineDateAndTime, toDateISO, toTimeHHmm, zurichNow } from "./time";
+import {
+  combineDateAndTime,
+  generateEndTimeOptions,
+  generateStartTimeOptions,
+  toDateISO,
+  toTimeHHmm,
+  zurichNow,
+} from "./time";
 import { getClosedDay } from "./closedDays";
 
 export const ACTIVE_RESERVATION_STATUSES: ReservationStatus[] = [
@@ -139,25 +146,26 @@ export async function getAvailabilityForSlot(
   });
 }
 
-export type TableDayOccupancy = {
-  id: string;
-  number: number;
-  seats: number;
-  /** Gesperrt = den ganzen Tag nicht buchbar. */
-  locked: boolean;
-  /** Belegte Zeiträume (HH:mm), sortiert. Bewusst ohne Gastdaten – für die öffentliche Ansicht. */
-  busy: { from: string; to: string }[];
+export type SlotAvailability = {
+  start: string;
+  /** false = ab dieser Startzeit ist keine einzige Dauer mehr buchbar. */
+  free: boolean;
+  ends: { time: string; freeTables: number }[];
 };
 
 /**
- * Tagesübersicht für Gäste: Wann ist welcher Tisch schon belegt
- * (Reservationen und manuell als besetzt markierte Zeitfenster)?
+ * Für die Zeitauswahl: zu jeder möglichen Von-/Bis-Kombination die Anzahl
+ * freier Tische. Damit kann die Oberfläche belegte Zeiten rot markieren.
+ * Alles wird aus einer einzigen Datenbankabfrage im Speicher berechnet.
  */
-export async function getDayOccupancy(dateISO: string): Promise<TableDayOccupancy[]> {
+export async function getDayAvailability(
+  dateISO: string,
+  partySize: number,
+): Promise<SlotAvailability[]> {
   if (await getClosedDay(dateISO)) return [];
 
   const dayStart = combineDateAndTime(dateISO, "00:00");
-  const dayEnd = combineDateAndTime(addDaysISO(dateISO, 1), "00:00");
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
   const tables = await prisma.table.findMany({
     where: { active: true },
@@ -174,25 +182,23 @@ export async function getDayOccupancy(dateISO: string): Promise<TableDayOccupanc
     },
   });
 
-  // Auf den Tag zuschneiden, damit z.B. über Mitternacht laufende Fenster passen.
-  const clip = (from: Date, to: Date) => ({
-    from: toTimeHHmm(from < dayStart ? dayStart : from),
-    to: to >= dayEnd ? "24:00" : toTimeHHmm(to),
-  });
+  // Gesperrte und zu kleine Tische kommen für diese Anfrage gar nicht infrage.
+  const usable = tables.filter(
+    (table) => table.status !== TableStatus.GESPERRT && table.seats >= partySize,
+  );
 
-  return tables.map((table) => {
-    const busy = table.reservations.map((r) => clip(r.start, r.end));
-    if (overlapsBusyWindow(table, dayStart, dayEnd)) {
-      busy.push(clip(table.busyFrom ?? dayStart, table.busyUntil ?? dayEnd));
-    }
-    busy.sort((a, b) => a.from.localeCompare(b.from));
-    return {
-      id: table.id,
-      number: table.number,
-      seats: table.seats,
-      locked: table.status === TableStatus.GESPERRT,
-      busy,
-    };
+  return generateStartTimeOptions().map((start) => {
+    const from = combineDateAndTime(dateISO, start);
+    const ends = generateEndTimeOptions(start).map((end) => {
+      const to = combineDateAndTime(dateISO, end);
+      const freeTables = usable.filter(
+        (table) =>
+          !overlapsBusyWindow(table, from, to) &&
+          !table.reservations.some((r) => r.start < to && r.end > from),
+      ).length;
+      return { time: end, freeTables };
+    });
+    return { start, free: ends.some((e) => e.freeTables > 0), ends };
   });
 }
 

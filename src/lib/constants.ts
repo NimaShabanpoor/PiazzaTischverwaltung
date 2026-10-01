@@ -26,7 +26,7 @@ export const MIN_RESERVATION_DURATION_MINUTES = 30;
 export const OPENING_TIME = "11:30";
 
 /** Letzte Uhrzeit, zu der die Küche/Reservation endet (HH:mm). */
-export const CLOSING_TIME = "22:00";
+export const CLOSING_TIME = "14:00";
 
 /** Raster für die Zeit-Auswahl in Minuten. */
 export const TIME_SLOT_STEP_MINUTES = 30;

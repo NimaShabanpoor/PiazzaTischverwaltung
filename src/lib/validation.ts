@@ -32,8 +32,6 @@ export const availabilityQuerySchema = z
   })
   .refine((d) => d.endTime > d.startTime, { message: ORDER_MESSAGE, path: ["endTime"] });
 
-export const dayOccupancySchema = z.object({ date: dateISO });
-
 const ONLINE_LIMIT_MESSAGE = `Online können maximal ${MAX_ONLINE_PARTY_SIZE} Personen reserviert werden. Für grössere Gruppen senden Sie bitte eine Anfrage.`;
 
 const reservationBaseSchema = z.object({
@@ -129,6 +127,12 @@ export const updateTableSchema = z.object({
   active: z.boolean().optional(),
   status: z.enum(["FREI", "BESETZT", "GESPERRT"]).optional(),
   lockNote: z.string().trim().max(200).nullable().optional(),
+});
+
+/** Für die Übersicht, welche Uhrzeiten an einem Tag noch frei sind. */
+export const dayAvailabilityQuerySchema = z.object({
+  date: dateISO,
+  partySize: z.coerce.number().int().min(1).max(MAX_ONLINE_PARTY_SIZE),
 });
 
 export const closedDaySchema = z.object({

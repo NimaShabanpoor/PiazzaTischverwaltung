@@ -1,23 +1,45 @@
 "use client";
 
+import clsx from "clsx";
 import { CalendarOff } from "lucide-react";
 import { Input, Label } from "@/components/ui/Field";
-import {
-  generateEndTimeOptions,
-  generateStartTimeOptions,
-  minutesToTime,
-  timeToMinutes,
-} from "@/lib/time";
-import { MIN_RESERVATION_DURATION_MINUTES } from "@/lib/constants";
+import { generateEndTimeOptions, generateStartTimeOptions } from "@/lib/time";
 import type { ClosedDayInfo } from "@/lib/closedDays";
-
-/** Ausgebuchte Zeiten (alle Tische belegt): rot und nicht wählbar. */
-const BOOKED_OPTION_STYLE = { color: "var(--color-status-reserved)" };
-
-const SELECT_CLASS =
-  "w-full rounded-xl border-2 border-brand-cream-dark bg-white px-4 py-3 text-base text-brand-navy outline-none transition-colors focus:border-brand-teal disabled:bg-brand-cream disabled:text-brand-navy/40";
+import type { SlotAvailability } from "@/lib/reservations";
 
 export type WhenPatch = { date?: string; startTime?: string; endTime?: string };
+
+function TimeButton({
+  time,
+  selected,
+  taken,
+  onSelect,
+}: {
+  time: string;
+  selected: boolean;
+  taken: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={taken}
+      onClick={onSelect}
+      title={taken ? "Zu dieser Zeit ist kein Tisch mehr frei" : undefined}
+      className={clsx(
+        "rounded-xl border-2 py-2.5 text-center text-sm transition-colors",
+        taken
+          ? "cursor-not-allowed border-status-reserved bg-status-reserved-bg font-bold text-status-reserved"
+          : selected
+            ? "cursor-pointer border-brand-orange bg-brand-orange font-medium text-white"
+            : "cursor-pointer border-brand-cream-dark bg-white font-medium text-brand-navy hover:border-brand-teal",
+      )}
+    >
+      {time}
+      {taken && <span className="block text-[10px] font-semibold uppercase">belegt</span>}
+    </button>
+  );
+}
 
 export function WhenFields({
   date,
@@ -27,7 +49,8 @@ export function WhenFields({
   maxDateISO,
   nowIso,
   closedDay,
-  isBooked,
+  slots,
+  showAvailability,
   onChange,
 }: {
   date: string;
@@ -38,19 +61,33 @@ export function WhenFields({
   nowIso: string;
   /** Gesetzt, wenn das gewählte Datum ein Schliesstag ist. */
   closedDay: ClosedDayInfo | null;
-  /** true, wenn im Zeitraum [from, to) kein passender Tisch mehr frei ist. */
-  isBooked?: (from: string, to: string) => boolean;
+  /** Belegung je Uhrzeit; null = noch nicht geladen. */
+  slots: SlotAvailability[] | null;
+  /** Bei Gruppenanfragen wird keine Belegung angezeigt (kein fester Tisch). */
+  showAvailability: boolean;
   onChange: (patch: WhenPatch) => void;
 }) {
   const isToday = date === nowIso.slice(0, 10);
   const nowTime = nowIso.slice(11, 16);
   const startOptions = generateStartTimeOptions().filter((t) => !isToday || t > nowTime);
+  const selectedSlot = slots?.find((s) => s.start === startTime) ?? null;
   const endOptions = startTime ? generateEndTimeOptions(startTime) : [];
-  const isClosed = !!closedDay;
+
+  function isStartTaken(time: string) {
+    if (!showAvailability || !slots) return false;
+    const slot = slots.find((s) => s.start === time);
+    return slot ? !slot.free : false;
+  }
+
+  function isEndTaken(time: string) {
+    if (!showAvailability || !selectedSlot) return false;
+    const end = selectedSlot.ends.find((e) => e.time === time);
+    return end ? end.freeTables === 0 : false;
+  }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <div>
+    <div className="space-y-5">
+      <div className="sm:max-w-60">
         <Label htmlFor="res-date">Datum</Label>
         <Input
           id="res-date"
@@ -58,67 +95,66 @@ export function WhenFields({
           min={todayISO}
           max={maxDateISO}
           value={date}
-          invalid={isClosed}
+          invalid={!!closedDay}
           onChange={(e) => onChange({ date: e.target.value })}
         />
       </div>
-      <div>
-        <Label htmlFor="res-start">Von</Label>
-        <select
-          id="res-start"
-          className={SELECT_CLASS}
-          value={startTime}
-          disabled={!date || isClosed}
-          onChange={(e) => onChange({ startTime: e.target.value })}
-        >
-          <option value="">Bitte wählen…</option>
-          {startOptions.map((t) => {
-            // Massgebend ist die Mindestdauer ab dieser Von-Zeit.
-            const minEnd = minutesToTime(timeToMinutes(t) + MIN_RESERVATION_DURATION_MINUTES);
-            return <TimeOption key={t} time={t} booked={!!isBooked?.(t, minEnd)} />;
-          })}
-        </select>
-      </div>
-      <div>
-        <Label htmlFor="res-end">Bis</Label>
-        <select
-          id="res-end"
-          className={SELECT_CLASS}
-          value={endTime}
-          disabled={!startTime || isClosed}
-          onChange={(e) => onChange({ endTime: e.target.value })}
-        >
-          <option value="">Bitte wählen…</option>
-          {endOptions.map((t) => (
-            <TimeOption key={t} time={t} booked={!!isBooked?.(startTime, t)} />
-          ))}
-        </select>
-      </div>
 
-      {isClosed && (
-        <p className="flex items-start gap-2 rounded-xl bg-status-reserved-bg p-3 text-sm text-status-reserved sm:col-span-3">
+      {closedDay ? (
+        <p className="flex items-start gap-2 rounded-xl bg-status-reserved-bg p-3 text-sm text-status-reserved">
           <CalendarOff size={18} className="mt-0.5 shrink-0" />
           <span>
             An diesem Tag haben wir geschlossen
-            {closedDay?.reason ? ` (${closedDay.reason})` : ""}. Bitte wählen Sie ein anderes
+            {closedDay.reason ? ` (${closedDay.reason})` : ""}. Bitte wählen Sie ein anderes
             Datum.
           </span>
         </p>
-      )}
-
-      {!isClosed && isToday && startOptions.length === 0 && (
-        <p className="rounded-xl bg-status-locked-bg p-3 text-sm text-brand-navy/70 sm:col-span-3">
+      ) : startOptions.length === 0 ? (
+        <p className="rounded-xl bg-status-locked-bg p-3 text-sm text-brand-navy/70">
           Für heute sind keine Uhrzeiten mehr verfügbar. Bitte wählen Sie ein anderes Datum.
         </p>
+      ) : (
+        <>
+          <div>
+            <p className="mb-2 text-sm font-semibold text-brand-navy/80">Von</p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {startOptions.map((time) => (
+                <TimeButton
+                  key={time}
+                  time={time}
+                  selected={time === startTime}
+                  taken={isStartTaken(time)}
+                  onSelect={() => onChange({ startTime: time })}
+                />
+              ))}
+            </div>
+          </div>
+
+          {startTime && (
+            <div>
+              <p className="mb-2 text-sm font-semibold text-brand-navy/80">Bis</p>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {endOptions.map((time) => (
+                  <TimeButton
+                    key={time}
+                    time={time}
+                    selected={time === endTime}
+                    taken={isEndTaken(time)}
+                    onSelect={() => onChange({ endTime: time })}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showAvailability && slots && (
+            <p className="flex items-center gap-2 text-xs text-brand-navy/50">
+              <span className="h-2.5 w-2.5 rounded-sm bg-status-reserved-bg ring-1 ring-status-reserved" />
+              Rot = zu dieser Zeit ist kein Tisch mehr frei
+            </p>
+          )}
+        </>
       )}
     </div>
-  );
-}
-
-function TimeOption({ time, booked }: { time: string; booked: boolean }) {
-  return (
-    <option value={time} disabled={booked} style={booked ? BOOKED_OPTION_STYLE : undefined}>
-      {booked ? `${time} – ausgebucht` : time}
-    </option>
   );
 }

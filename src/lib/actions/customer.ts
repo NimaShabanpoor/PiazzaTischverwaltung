@@ -1,14 +1,18 @@
 "use server";
 
-import { createReservationSchema, availabilityQuerySchema, dayOccupancySchema } from "../validation";
+import {
+  createReservationSchema,
+  availabilityQuerySchema,
+  dayAvailabilityQuerySchema,
+} from "../validation";
 import {
   createReservation,
   getAvailabilityForSlot,
-  getDayOccupancy,
+  getDayAvailability,
   ReservationConflictError,
   ReservationValidationError,
+  type SlotAvailability,
   type TableAvailability,
-  type TableDayOccupancy,
 } from "../reservations";
 import { queueReservationConfirmation } from "../notifications";
 import { shortConfirmationCode } from "../confirmationCode";
@@ -38,6 +42,24 @@ export async function fetchAvailability(input: {
   } catch (err) {
     console.error("fetchAvailability failed", err);
     return { ok: false, error: "Verfügbarkeit konnte nicht geladen werden." };
+  }
+}
+
+/** Welche Uhrzeiten sind an diesem Tag noch frei (für die Von-/Bis-Auswahl)? */
+export async function fetchDayAvailability(input: {
+  date: string;
+  partySize: number;
+}): Promise<ActionResult<SlotAvailability[]>> {
+  const parsed = dayAvailabilityQuerySchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe." };
+  }
+  try {
+    const data = await getDayAvailability(parsed.data.date, parsed.data.partySize);
+    return { ok: true, data };
+  } catch (err) {
+    console.error("fetchDayAvailability failed", err);
+    return { ok: false, error: "Zeiten konnten nicht geladen werden." };
   }
 }
 
@@ -90,20 +112,5 @@ export async function submitReservation(
     }
     console.error("submitReservation failed", err);
     return { ok: false, error: "Reservation konnte nicht gespeichert werden. Bitte versuchen Sie es erneut." };
-  }
-}
-
-export async function fetchDayOccupancy(input: {
-  date: string;
-}): Promise<ActionResult<TableDayOccupancy[]>> {
-  const parsed = dayOccupancySchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe." };
-  }
-  try {
-    return { ok: true, data: await getDayOccupancy(parsed.data.date) };
-  } catch (err) {
-    console.error("fetchDayOccupancy failed", err);
-    return { ok: false, error: "Belegung konnte nicht geladen werden." };
   }
 }

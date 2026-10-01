@@ -11,7 +11,7 @@ const REASON_LABEL: Record<string, string> = {
   gesperrt: "Gesperrt",
   "besetzt-manuell": "Besetzt",
   "zu-klein": "Zu klein",
-  reserviert: "Reserviert",
+  reserviert: "Belegt",
 };
 
 const REASON_STATUS: Record<string, DisplayStatus> = {
@@ -20,6 +20,9 @@ const REASON_STATUS: Record<string, DisplayStatus> = {
   reserviert: "RESERVIERT",
   "zu-klein": "GESPERRT",
 };
+
+/** Belegt/reserviert wird rot dargestellt – wie bei der Zeitauswahl. */
+const RED_REASONS = new Set(["reserviert", "besetzt-manuell"]);
 
 export function TableChoice({
   date,
@@ -91,6 +94,9 @@ export function TableChoice({
       <div className="grid grid-cols-2 gap-3">
         {tables.map((table) => {
           const selected = value === table.id;
+          const reason = table.reason ?? "gesperrt";
+          const isRed = !table.available && RED_REASONS.has(reason);
+
           return (
             <button
               key={table.id}
@@ -98,14 +104,17 @@ export function TableChoice({
               disabled={!table.available}
               onClick={() => onSelect(table.id, table.number)}
               aria-pressed={selected}
+              title={!table.available ? REASON_LABEL[reason] : undefined}
               className={clsx(
                 "relative flex flex-col items-center gap-1 rounded-2xl border-2 p-3 transition-all",
-                table.available
-                  ? "cursor-pointer bg-white hover:-translate-y-0.5 hover:border-brand-teal hover:shadow-md"
-                  : "cursor-not-allowed bg-brand-cream/70 opacity-70",
-                selected
+                table.available &&
+                  "cursor-pointer bg-white hover:-translate-y-0.5 hover:border-brand-teal hover:shadow-md",
+                table.available && selected
                   ? "border-brand-orange bg-brand-orange/5 shadow-sm"
-                  : "border-brand-cream-dark",
+                  : table.available && "border-brand-cream-dark",
+                !table.available && "cursor-not-allowed",
+                isRed && "border-status-reserved bg-status-reserved-bg",
+                !table.available && !isRed && "border-brand-cream-dark bg-brand-cream/70 opacity-70",
               )}
             >
               {selected && (
@@ -116,16 +125,33 @@ export function TableChoice({
               <TableGraphic
                 number={table.number}
                 seats={table.seats}
-                status={table.available ? "FREI" : REASON_STATUS[table.reason ?? "gesperrt"]}
+                status={table.available ? "FREI" : REASON_STATUS[reason]}
                 size={64}
               />
-              <span className="font-display text-sm font-semibold text-brand-navy">
+              <span
+                className={clsx(
+                  "font-display text-sm font-semibold",
+                  isRed ? "text-status-reserved" : "text-brand-navy",
+                )}
+              >
                 Tisch {table.number}
               </span>
-              <span className="text-xs text-brand-navy/50">{table.seats} Plätze</span>
-              {!table.available && table.reason && (
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-status-reserved">
-                  {REASON_LABEL[table.reason]}
+              <span
+                className={clsx(
+                  "text-xs",
+                  isRed ? "text-status-reserved/80" : "text-brand-navy/50",
+                )}
+              >
+                {table.seats} Plätze
+              </span>
+              {!table.available && (
+                <span
+                  className={clsx(
+                    "text-[11px] font-semibold uppercase tracking-wide",
+                    isRed ? "text-status-reserved" : "text-brand-navy/40",
+                  )}
+                >
+                  {REASON_LABEL[reason]}
                 </span>
               )}
             </button>
@@ -133,10 +159,18 @@ export function TableChoice({
         })}
       </div>
 
-      <p className="mt-3 text-xs text-brand-navy/50">
-        {freeCount === 0
-          ? "Zu dieser Zeit ist kein Tisch frei – bitte eine andere Uhrzeit wählen."
-          : `${freeCount} von ${tables.length} Tischen frei`}
+      <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-brand-navy/50">
+        <span>
+          {freeCount === 0
+            ? "Zu dieser Zeit ist kein Tisch frei – bitte eine andere Uhrzeit wählen."
+            : `${freeCount} von ${tables.length} Tischen frei`}
+        </span>
+        {freeCount < tables.length && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-sm bg-status-reserved-bg ring-1 ring-status-reserved" />
+            Rot = belegt
+          </span>
+        )}
       </p>
     </div>
   );
