@@ -23,27 +23,24 @@ function pos(time: string): number {
   return ((m - OPEN) / SPAN) * 100;
 }
 
+export type DayOccupancyState = {
+  /** null = lädt noch (oder kein Datum). */
+  tables: TableDayOccupancy[] | null;
+  error: string | null;
+};
+
 /**
- * Zeigt Gästen, wann die Tische am gewählten Tag schon belegt sind –
- * nur Zeiten, keine Namen. Die gewählte Von-Bis-Zeit wird hervorgehoben.
+ * Lädt die Tagesbelegung. Wird im Formular einmal geladen und an die
+ * Zeitleiste und die Uhrzeit-Auswahl weitergegeben.
+ * `refreshKey` hochzählen, um neu zu laden (z.B. nach einer Doppelbuchung).
  */
-export function DayOccupancy({
-  date,
-  startTime,
-  endTime,
-  refreshKey = 0,
-}: {
-  date: string;
-  startTime: string;
-  endTime: string;
-  /** Hochzählen, um die Belegung neu zu laden (z.B. nach einer Doppelbuchung). */
-  refreshKey?: number;
-}) {
+export function useDayOccupancy(date: string | null, refreshKey = 0): DayOccupancyState {
   // Mit Datum gespeichert, damit beim Datumswechsel nicht kurz die alte Belegung erscheint.
   const [loaded, setLoaded] = useState<{ date: string; tables: TableDayOccupancy[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!date) return;
     let cancelled = false;
     fetchDayOccupancy({ date }).then((res) => {
       if (cancelled) return;
@@ -59,11 +56,51 @@ export function DayOccupancy({
     };
   }, [date, refreshKey]);
 
+  return { tables: loaded && loaded.date === date ? loaded.tables : null, error };
+}
+
+/**
+ * true, wenn im Zeitraum [from, to) kein Tisch mit genug Plätzen frei ist.
+ * Solange die Belegung noch lädt, gilt nichts als ausgebucht.
+ */
+export function isFullyBooked(
+  tables: TableDayOccupancy[] | null,
+  partySize: number,
+  from: string,
+  to: string,
+): boolean {
+  if (!tables || tables.length === 0) return false;
+  const a = timeToMinutes(from);
+  const b = timeToMinutes(to);
+  return !tables.some(
+    (t) =>
+      !t.locked &&
+      t.seats >= partySize &&
+      t.busy.every((x) => timeToMinutes(x.to) <= a || timeToMinutes(x.from) >= b),
+  );
+}
+
+/**
+ * Zeigt Gästen, wann die Tische am gewählten Tag schon belegt sind –
+ * nur Zeiten, keine Namen. Die gewählte Von-Bis-Zeit wird hervorgehoben.
+ */
+export function DayOccupancy({
+  date,
+  startTime,
+  endTime,
+  occupancy,
+}: {
+  date: string;
+  startTime: string;
+  endTime: string;
+  occupancy: DayOccupancyState;
+}) {
+  const { tables, error } = occupancy;
+
   if (error) {
     return <p className="text-sm text-status-reserved">{error}</p>;
   }
 
-  const tables = loaded?.date === date ? loaded.tables : null;
   if (!tables) {
     return <div className="h-40 animate-pulse rounded-2xl bg-brand-cream" />;
   }

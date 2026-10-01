@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
-import { DayOccupancy } from "./DayOccupancy";
+import { DayOccupancy, isFullyBooked, useDayOccupancy } from "./DayOccupancy";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
 import { submitReservation } from "@/lib/actions/customer";
@@ -40,11 +40,21 @@ type FormState = {
   contact: ContactData;
 };
 
-/** Schlägt eine Bis-Zeit vor (Standarddauer), begrenzt auf gültige Optionen. */
-function suggestEndTime(startTime: string): string {
+/**
+ * Schlägt eine Bis-Zeit vor (Standarddauer), begrenzt auf gültige Optionen.
+ * Ist die Standarddauer schon ausgebucht, wird auf die längste freie Dauer gekürzt.
+ */
+function suggestEndTime(
+  startTime: string,
+  isBooked: (from: string, to: string) => boolean = () => false,
+): string {
   const options = generateEndTimeOptions(startTime);
   const target = timeToMinutes(startTime) + DEFAULT_RESERVATION_DURATION_MINUTES;
-  return options.find((t) => timeToMinutes(t) >= target) ?? options[options.length - 1] ?? "";
+  const preferred =
+    options.find((t) => timeToMinutes(t) >= target) ?? options[options.length - 1] ?? "";
+  if (!preferred || !isBooked(startTime, preferred)) return preferred;
+  const free = options.filter((t) => t < preferred && !isBooked(startTime, t));
+  return free[free.length - 1] ?? preferred;
 }
 
 export function ReservationForm({
@@ -81,6 +91,12 @@ export function ReservationForm({
   const closedDay = closedDays.find((d) => d.date === state.date) ?? null;
   const timeChosen = !!state.date && !!state.startTime && !!state.endTime;
 
+  // Tagesbelegung für Zeitleiste und rot markierte Uhrzeiten. Bei Gruppenanfragen
+  // (Tische werden individuell zusammengestellt) wird nichts als ausgebucht markiert.
+  const occupancy = useDayOccupancy(state.date && !closedDay ? state.date : null, availabilityKey);
+  const isBooked = (from: string, to: string) =>
+    isFullyBooked(occupancy.tables, state.partySize ?? 1, from, to);
+
   function patchWhen(patch: WhenPatch) {
     setState((s) => {
       const next: FormState = { ...s, ...patch, tableId: null, tableNumber: null };
@@ -92,7 +108,9 @@ export function ReservationForm({
       }
       if (patch.startTime !== undefined) {
         // Bis-Zeit passend vorschlagen bzw. ungültige Auswahl korrigieren.
-        next.endTime = patch.startTime ? suggestEndTime(patch.startTime) : "";
+        next.endTime = patch.startTime
+          ? suggestEndTime(patch.startTime, isRequest ? undefined : isBooked)
+          : "";
       } else if (patch.date !== undefined && next.startTime) {
         const valid = generateEndTimeOptions(next.startTime);
         if (!valid.includes(next.endTime)) next.endTime = suggestEndTime(next.startTime);
@@ -213,6 +231,7 @@ export function ReservationForm({
                 maxDateISO={addDaysISO(todayISO, bookableDaysAhead)}
                 nowIso={nowIso}
                 closedDay={closedDay}
+                isBooked={isRequest ? undefined : isBooked}
                 onChange={patchWhen}
               />
               {state.date && !closedDay && (
@@ -221,7 +240,7 @@ export function ReservationForm({
                     date={state.date}
                     startTime={state.startTime}
                     endTime={state.endTime}
-                    refreshKey={availabilityKey}
+                    occupancy={occupancy}
                   />
                 </div>
               )}

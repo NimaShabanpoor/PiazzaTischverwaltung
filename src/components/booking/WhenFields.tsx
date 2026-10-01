@@ -2,7 +2,16 @@
 
 import { CalendarOff } from "lucide-react";
 import { Input, Label } from "@/components/ui/Field";
-import { generateEndTimeOptions, generateStartTimeOptions } from "@/lib/time";
+import {
+  generateEndTimeOptions,
+  generateStartTimeOptions,
+  minutesToTime,
+  timeToMinutes,
+} from "@/lib/time";
+import { MIN_RESERVATION_DURATION_MINUTES } from "@/lib/constants";
+
+/** Ausgebuchte Zeiten: rot und nicht wählbar. */
+const BOOKED_OPTION_STYLE = { color: "var(--color-status-reserved)" };
 import type { ClosedDayInfo } from "@/lib/closedDays";
 
 const SELECT_CLASS =
@@ -18,6 +27,7 @@ export function WhenFields({
   maxDateISO,
   nowIso,
   closedDay,
+  isBooked,
   onChange,
 }: {
   date: string;
@@ -28,6 +38,8 @@ export function WhenFields({
   nowIso: string;
   /** Gesetzt, wenn das gewählte Datum ein Schliesstag ist. */
   closedDay: ClosedDayInfo | null;
+  /** true, wenn im Zeitraum [from, to) kein passender Tisch mehr frei ist. */
+  isBooked?: (from: string, to: string) => boolean;
   onChange: (patch: WhenPatch) => void;
 }) {
   const isToday = date === nowIso.slice(0, 10);
@@ -60,11 +72,21 @@ export function WhenFields({
           onChange={(e) => onChange({ startTime: e.target.value })}
         >
           <option value="">Bitte wählen…</option>
-          {startOptions.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
+          {startOptions.map((t) => {
+            // Eine Von-Zeit ist ausgebucht, wenn nicht einmal die Mindestdauer frei ist.
+            const minEnd = minutesToTime(timeToMinutes(t) + MIN_RESERVATION_DURATION_MINUTES);
+            const booked = !!isBooked?.(t, minEnd);
+            return (
+              <option
+                key={t}
+                value={t}
+                disabled={booked}
+                style={booked ? BOOKED_OPTION_STYLE : undefined}
+              >
+                {booked ? `${t} – ausgebucht` : t}
+              </option>
+            );
+          })}
         </select>
       </div>
       <div>
@@ -77,11 +99,19 @@ export function WhenFields({
           onChange={(e) => onChange({ endTime: e.target.value })}
         >
           <option value="">Bitte wählen…</option>
-          {endOptions.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
+          {endOptions.map((t) => {
+            const booked = !!isBooked?.(startTime, t);
+            return (
+              <option
+                key={t}
+                value={t}
+                disabled={booked}
+                style={booked ? BOOKED_OPTION_STYLE : undefined}
+              >
+                {booked ? `${t} – ausgebucht` : t}
+              </option>
+            );
+          })}
         </select>
       </div>
 
