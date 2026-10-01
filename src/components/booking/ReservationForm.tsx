@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
 import { PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
-import { DayOccupancy, isFullyBooked, useDayOccupancy } from "./DayOccupancy";
+import { isFullyBooked, useDayOccupancy } from "./useDayOccupancy";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
 import { submitReservation } from "@/lib/actions/customer";
@@ -91,11 +91,11 @@ export function ReservationForm({
   const closedDay = closedDays.find((d) => d.date === state.date) ?? null;
   const timeChosen = !!state.date && !!state.startTime && !!state.endTime;
 
-  // Tagesbelegung für Zeitleiste und rot markierte Uhrzeiten. Bei Gruppenanfragen
-  // (Tische werden individuell zusammengestellt) wird nichts als ausgebucht markiert.
+  // Tagesbelegung für rot markierte Uhrzeiten. Bei Gruppenanfragen (Tische werden
+  // individuell zusammengestellt) wird nichts als ausgebucht markiert.
   const occupancy = useDayOccupancy(state.date && !closedDay ? state.date : null, availabilityKey);
   const isBooked = (from: string, to: string) =>
-    isFullyBooked(occupancy.tables, state.partySize ?? 1, from, to);
+    isFullyBooked(occupancy, state.partySize ?? 1, from, to);
 
   function patchWhen(patch: WhenPatch) {
     setState((s) => {
@@ -234,16 +234,6 @@ export function ReservationForm({
                 isBooked={isRequest ? undefined : isBooked}
                 onChange={patchWhen}
               />
-              {state.date && !closedDay && (
-                <div className="mt-5">
-                  <DayOccupancy
-                    date={state.date}
-                    startTime={state.startTime}
-                    endTime={state.endTime}
-                    occupancy={occupancy}
-                  />
-                </div>
-              )}
             </Section>
 
             <Section
