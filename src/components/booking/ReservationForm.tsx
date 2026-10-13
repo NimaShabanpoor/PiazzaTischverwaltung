@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, CalendarOff, Loader2, User, Users, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { WhenFields, type WhenPatch } from "./WhenFields";
-import { PartySizeField } from "./PartySizeField";
+import { GroupRequestBox, PartySizeField } from "./PartySizeField";
 import { TableChoice } from "./TableChoice";
 import { ContactFields, type ContactData } from "./ContactFields";
 import { RequestSentScreen } from "./RequestSentScreen";
@@ -226,7 +226,8 @@ export function ReservationForm({
 
       {/*
         Reihenfolge im DOM = Reihenfolge auf dem Handy:
-        Zeit/Personen → Tisch → Kontakt → Zusammenfassung mit Bestätigen-Button ganz unten.
+        Zeit/Personen → Tisch (mit dem Gruppen-Hinweis darunter) → Kontakt →
+        Zusammenfassung mit dem Bestätigen-Button ganz unten.
         Auf grossen Bildschirmen füllt das Raster daraus zwei Spalten.
       */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -304,6 +305,15 @@ export function ReservationForm({
               }
             />
           )}
+
+          <div className="mt-5 border-t border-brand-cream-dark pt-5">
+            <GroupRequestBox
+              value={state.partySize}
+              onChange={(partySize) =>
+                setState((s) => ({ ...s, partySize, tableId: null, tableNumber: null }))
+              }
+            />
+          </div>
         </div>
 
         <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">

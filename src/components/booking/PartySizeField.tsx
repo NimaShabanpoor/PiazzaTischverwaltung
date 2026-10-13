@@ -15,12 +15,8 @@ export function PartySizeField({
   value: number | null;
   onChange: (size: number) => void;
 }) {
-  const isRequest = value !== null && value > MAX_ONLINE_PARTY_SIZE;
-  const requestSize = isRequest ? value : MIN_REQUEST_SIZE;
-
   return (
-    <div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-4 gap-2 sm:gap-3">
         {QUICK_SIZES.map((size) => (
           <button
             key={size}
@@ -37,11 +33,30 @@ export function PartySizeField({
             {size}
           </button>
         ))}
-      </div>
+    </div>
+  );
+}
 
-      <div
+/**
+ * Hinweis für grössere Gruppen. Steht bewusst NICHT direkt unter der
+ * Personenzahl, sondern unter der Tischauswahl: Sonst schiebt der Kasten auf
+ * dem Handy die Tische weit nach unten, obwohl ihn die meisten Gäste nicht
+ * brauchen.
+ */
+export function GroupRequestBox({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (size: number) => void;
+}) {
+  const isRequest = value !== null && value > MAX_ONLINE_PARTY_SIZE;
+  const requestSize = isRequest ? value : MIN_REQUEST_SIZE;
+
+  return (
+    <div
         className={clsx(
-          "mt-4 rounded-2xl border-2 p-4 transition-colors",
+          "rounded-2xl border-2 p-4 transition-colors",
           isRequest
             ? "border-brand-orange bg-status-occupied-bg/50"
             : "border-brand-cream-dark bg-white",
@@ -92,7 +107,6 @@ export function PartySizeField({
             </Button>
           )}
         </div>
-      </div>
     </div>
   );
 }
