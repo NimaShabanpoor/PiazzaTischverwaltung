@@ -31,7 +31,7 @@ export function adminNotifyAddress(): string | null {
  * RESERVATION_APPROVER_EMAIL in `.env` änderbar.
  */
 export function approverAddress(): string {
-  return process.env.RESERVATION_APPROVER_EMAIL?.trim() || "Nima.shabanpoor20@gmail.com";
+  return process.env.RESERVATION_APPROVER_EMAIL?.trim() || "nima.shabanpoor20@gmail.com";
 }
 
 let transporter: Transporter | null = null;

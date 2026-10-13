@@ -39,5 +39,5 @@ export const RESTAURANT_INFO = {
   city: "Zürich",
   addressLine: "Vulkanstrasse 106, 8048 Zürich",
   phone: "076 419 00 60",
-  email: "reservierungen@piazza106events.ch",
+  email: "Reservierungen@piazza106events.ch",
 };
