@@ -18,6 +18,13 @@ export type ReservationMailData = {
   note: string | null;
 };
 
+/** Anfrage-Mail an das Restaurant: wie ReservationMailData, plus Kontakt und Freigabe-Code. */
+export type ReservationRequestMailData = ReservationMailData & {
+  customerEmail: string;
+  customerPhone: string;
+  decisionToken: string;
+};
+
 export type GroupRequestMailData = {
   customerName: string;
   customerEmail: string;
@@ -38,6 +45,7 @@ const C = {
   orange: "#c94d28",
   navy: "#1b2740",
   muted: "#5b6472",
+  red: "#b23a2b",
 };
 
 function escapeHtml(value: string): string {
@@ -123,8 +131,8 @@ function details(rows: [string, string][]): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-top:1px solid ${C.creamDark};border-bottom:1px solid ${C.creamDark};">${cells}</table>`;
 }
 
-function button(label: string, href: string): string {
-  return `<a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 22px;background:${C.orange};color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;border-radius:10px;">${escapeHtml(label)}</a>`;
+function button(label: string, href: string, background: string = C.orange): string {
+  return `<a href="${escapeHtml(href)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 22px;background:${background};color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;border-radius:10px;">${escapeHtml(label)}</a>`;
 }
 
 function textFooter(): string {
@@ -294,6 +302,150 @@ export function groupRequestDeclinedEmail(d: GroupRequestMailData): MailContent 
 
   return {
     subject: `Ihre Anfrage bei ${RESTAURANT_INFO.name} – ${formatDateDeCH(d.dateISO)}`,
+    html,
+    text,
+  };
+}
+
+/** Zeilen, die Gast und Restaurant in jeder Reservations-Mail sehen. */
+function reservationRows(d: ReservationMailData): [string, string][] {
+  const rows: [string, string][] = [
+    ["Datum", dateLabel(d.dateISO)],
+    ["Uhrzeit", `${d.startTime} – ${d.endTime} Uhr`],
+    ["Tisch", `Tisch ${d.tableNumber}`],
+    ["Personen", personsLabel(d.partySize)],
+  ];
+  if (d.note) rows.push(["Anmerkung", d.note]);
+  return rows;
+}
+
+/**
+ * An das Restaurant: neue Online-Anfrage, bitte annehmen oder ablehnen.
+ * Die Knöpfe führen auf eine Seite, die erst nach einem weiteren Klick
+ * entscheidet – damit Virenscanner und Mail-Vorschauen, die Links im
+ * Hintergrund öffnen, nicht versehentlich zusagen.
+ */
+export function reservationRequestAdminEmail(d: ReservationRequestMailData): MailContent {
+  const rows = reservationRows(d);
+  const contactRows: [string, string][] = [
+    ["Gast", d.customerName],
+    ["Telefon", d.customerPhone],
+    ["E-Mail", d.customerEmail],
+  ];
+  const acceptUrl = appUrl(`/anfrage/${encodeURIComponent(d.decisionToken)}?aktion=annehmen`);
+  const declineUrl = appUrl(`/anfrage/${encodeURIComponent(d.decisionToken)}?aktion=ablehnen`);
+
+  const html = layout(
+    "Neue Reservationsanfrage",
+    [
+      heading("Neue Reservationsanfrage"),
+      paragraph(
+        `Es ist eine neue Online-Anfrage eingegangen. Der Tisch ist bis zu Ihrer Entscheidung für diesen Gast reserviert.`,
+      ),
+      details([...rows, ...contactRows]),
+      button("Annehmen", acceptUrl, C.teal),
+      button("Ablehnen", declineUrl, C.red),
+      smallNote(
+        "Der Gast wurde informiert, dass seine Anfrage bearbeitet wird. Sobald Sie entschieden haben, erhält er automatisch die Zusage oder die Absage.",
+      ),
+    ].join(""),
+  );
+
+  const text = [
+    "Neue Online-Reservationsanfrage",
+    "",
+    "Der Tisch ist bis zu Ihrer Entscheidung für diesen Gast reserviert.",
+    "",
+    textRows([...rows, ...contactRows]),
+    "",
+    `Annehmen: ${acceptUrl}`,
+    `Ablehnen: ${declineUrl}`,
+    "",
+    textFooter(),
+  ].join("\n");
+
+  return {
+    subject: `Neue Anfrage: ${formatDateDeCH(d.dateISO)}, ${d.startTime} Uhr – ${personsLabel(d.partySize)}`,
+    html,
+    text,
+  };
+}
+
+/** An den Gast, direkt nach dem Absenden: Anfrage wird bearbeitet. */
+export function reservationPendingEmail(d: ReservationMailData): MailContent {
+  const rows = reservationRows(d);
+
+  const html = layout(
+    "Ihre Reservation wird bearbeitet",
+    [
+      heading("Ihre Reservation wird bearbeitet"),
+      paragraph(
+        `Guten Tag ${escapeHtml(d.customerName)}<br>vielen Dank für Ihre Anfrage. Wir prüfen sie und melden uns in Kürze mit der Bestätigung oder einer Absage bei Ihnen.`,
+      ),
+      details(rows),
+      codeBox(d.code),
+      paragraph(
+        "Bitte beachten Sie: Ihre Reservation ist erst mit unserer Bestätigung verbindlich.",
+      ),
+      smallNote(`Bei Fragen erreichen Sie uns unter ${escapeHtml(RESTAURANT_INFO.phone)}.`),
+    ].join(""),
+  );
+
+  const text = [
+    `Guten Tag ${d.customerName}`,
+    "",
+    "vielen Dank für Ihre Anfrage. Wir prüfen sie und melden uns in Kürze mit der Bestätigung oder einer Absage bei Ihnen.",
+    "",
+    textRows(rows),
+    `Bestätigungscode: ${d.code}`,
+    "",
+    "Ihre Reservation ist erst mit unserer Bestätigung verbindlich.",
+    "",
+    textFooter(),
+  ].join("\n");
+
+  return {
+    subject: `Ihre Anfrage bei ${RESTAURANT_INFO.name} wird bearbeitet – ${formatDateDeCH(d.dateISO)}, ${d.startTime} Uhr`,
+    html,
+    text,
+  };
+}
+
+/** An den Gast, wenn das Restaurant die Anfrage ablehnt. */
+export function reservationDeclinedEmail(d: ReservationMailData): MailContent {
+  const rows = reservationRows(d);
+
+  const html = layout(
+    "Reservation leider nicht möglich",
+    [
+      heading("Leider können wir Ihre Anfrage nicht bestätigen"),
+      paragraph(
+        `Guten Tag ${escapeHtml(d.customerName)}<br>vielen Dank für Ihre Anfrage. Leider können wir Ihnen den gewünschten Tisch zu dieser Zeit nicht anbieten.`,
+      ),
+      details(rows),
+      paragraph(
+        "Gerne finden wir einen anderen Termin für Sie – wählen Sie einfach eine andere Uhrzeit oder rufen Sie uns an.",
+      ),
+      button("Andere Zeit wählen", appUrl("/reservieren")),
+      smallNote(`Telefonisch erreichen Sie uns unter ${escapeHtml(RESTAURANT_INFO.phone)}.`),
+    ].join(""),
+  );
+
+  const text = [
+    `Guten Tag ${d.customerName}`,
+    "",
+    "vielen Dank für Ihre Anfrage. Leider können wir Ihnen den gewünschten Tisch zu dieser Zeit nicht anbieten.",
+    "",
+    textRows(rows),
+    "",
+    `Gerne finden wir einen anderen Termin: ${appUrl("/reservieren")}`,
+    `Oder rufen Sie uns an: ${RESTAURANT_INFO.phone}`,
+    "",
+    textFooter(),
+  ].join("\n");
+
+  return {
+    subject: `Ihre Anfrage bei ${RESTAURANT_INFO.name} – ${formatDateDeCH(d.dateISO)}, ${d.startTime} Uhr`,
     html,
     text,
   };

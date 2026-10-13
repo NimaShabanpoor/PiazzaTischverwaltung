@@ -26,6 +26,14 @@ export function adminNotifyAddress(): string | null {
   return process.env.ADMIN_NOTIFY_EMAIL?.trim() || null;
 }
 
+/**
+ * Adresse, die jede Online-Anfrage zur Freigabe erhält. Über
+ * RESERVATION_APPROVER_EMAIL in `.env` änderbar.
+ */
+export function approverAddress(): string {
+  return process.env.RESERVATION_APPROVER_EMAIL?.trim() || "malte.niederlaender@bhms.ch";
+}
+
 let transporter: Transporter | null = null;
 
 function getTransporter(): Transporter {

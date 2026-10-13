@@ -17,14 +17,16 @@ import { ReservationFormModal } from "./ReservationFormModal";
 import type { ReservationDTO, ReservationWithTableDTO, TableDTO } from "@/lib/adminTypes";
 
 const STATUS_LABEL: Record<string, string> = {
+  ANGEFRAGT: "Wird bearbeitet",
   CONFIRMED: "Bestätigt",
   ARRIVED: "Angekommen",
   CANCELLED: "Storniert",
+  ABGELEHNT: "Abgelehnt",
   COMPLETED: "Abgeschlossen",
 };
 
 function toDisplayStatus(r: ReservationWithTableDTO): "FREI" | "RESERVIERT" | "BESETZT" | "GESPERRT" {
-  if (r.status === "CANCELLED") return "GESPERRT";
+  if (r.status === "CANCELLED" || r.status === "ABGELEHNT") return "GESPERRT";
   if (r.status === "ARRIVED") return "BESETZT";
   return "RESERVIERT";
 }

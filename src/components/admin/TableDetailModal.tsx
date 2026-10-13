@@ -164,6 +164,7 @@ export function TableDetailModal({
                     <p className="mt-1 text-sm italic text-brand-navy/60">„{r.note}“</p>
                   )}
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-brand-navy/40">
+                    {r.status === "ANGEFRAGT" && "Wird bearbeitet"}
                     {r.status === "CONFIRMED" && "Bestätigt"}
                     {r.status === "ARRIVED" && "Angekommen"}
                     {r.status === "COMPLETED" && "Abgeschlossen"}

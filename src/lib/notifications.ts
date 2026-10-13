@@ -1,11 +1,15 @@
 import { after } from "next/server";
-import { adminNotifyAddress, isMailConfigured, sendMail } from "./mail";
+import { adminNotifyAddress, approverAddress, isMailConfigured, sendMail } from "./mail";
 import {
   groupRequestAdminEmail,
   groupRequestDeclinedEmail,
   groupRequestReceivedEmail,
   reservationConfirmationEmail,
+  reservationDeclinedEmail,
+  reservationPendingEmail,
+  reservationRequestAdminEmail,
   type GroupRequestMailData,
+  type ReservationMailData,
 } from "./emailTemplates";
 import { shortConfirmationCode } from "./confirmationCode";
 import { toDateISO, toTimeHHmm } from "./time";
@@ -14,6 +18,7 @@ type ReservationForMail = {
   confirmationCode: string;
   customerName: string;
   customerEmail: string;
+  customerPhone: string;
   start: Date;
   end: Date;
   partySize: number;
@@ -38,8 +43,8 @@ type GroupRequestForMail = {
  * aufrufen. Rückgabe: ob überhaupt versendet wird (SMTP konfiguriert).
  */
 
-export function queueReservationConfirmation(reservation: ReservationForMail): boolean {
-  const mail = reservationConfirmationEmail({
+function toReservationMailData(reservation: ReservationForMail): ReservationMailData {
+  return {
     customerName: reservation.customerName,
     dateISO: toDateISO(reservation.start),
     startTime: toTimeHHmm(reservation.start),
@@ -48,7 +53,46 @@ export function queueReservationConfirmation(reservation: ReservationForMail): b
     partySize: reservation.partySize,
     code: shortConfirmationCode(reservation.confirmationCode),
     note: reservation.note,
+  };
+}
+
+export function queueReservationConfirmation(reservation: ReservationForMail): boolean {
+  const mail = reservationConfirmationEmail(toReservationMailData(reservation));
+  after(() => sendMail({ to: reservation.customerEmail, ...mail }));
+  return isMailConfigured();
+}
+
+/**
+ * Neue Online-Anfrage: Der Gast erfährt, dass seine Reservation bearbeitet
+ * wird, das Restaurant erhält die Anfrage mit den Knöpfen zum Entscheiden.
+ */
+export function queueReservationRequest(
+  reservation: ReservationForMail,
+  decisionToken: string,
+): boolean {
+  const data = toReservationMailData(reservation);
+  const guestMail = reservationPendingEmail(data);
+  const adminMail = reservationRequestAdminEmail({
+    ...data,
+    customerEmail: reservation.customerEmail,
+    customerPhone: reservation.customerPhone,
+    decisionToken,
   });
+  const approver = approverAddress();
+  after(async () => {
+    await sendMail({ to: reservation.customerEmail, ...guestMail });
+    await sendMail({ to: approver, ...adminMail });
+  });
+  return isMailConfigured();
+}
+
+/** Entscheidung des Restaurants: Zusage oder Absage an den Gast. */
+export function queueReservationDecision(
+  reservation: ReservationForMail,
+  accepted: boolean,
+): boolean {
+  const data = toReservationMailData(reservation);
+  const mail = accepted ? reservationConfirmationEmail(data) : reservationDeclinedEmail(data);
   after(() => sendMail({ to: reservation.customerEmail, ...mail }));
   return isMailConfigured();
 }

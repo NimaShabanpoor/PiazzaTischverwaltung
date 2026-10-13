@@ -19,9 +19,11 @@ import {
 import type { ReservationDTO, TableDTO } from "@/lib/adminTypes";
 
 const STATUS_OPTIONS = [
+  { value: "ANGEFRAGT", label: "Wird bearbeitet" },
   { value: "CONFIRMED", label: "Bestätigt" },
   { value: "ARRIVED", label: "Angekommen" },
   { value: "CANCELLED", label: "Storniert" },
+  { value: "ABGELEHNT", label: "Abgelehnt" },
   { value: "COMPLETED", label: "Abgeschlossen" },
 ] as const;
 

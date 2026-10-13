@@ -6,7 +6,6 @@ import {
   dayAvailabilityQuerySchema,
 } from "../validation";
 import {
-  createReservation,
   getAvailabilityForSlot,
   getDayAvailability,
   ReservationConflictError,
@@ -14,7 +13,8 @@ import {
   type SlotAvailability,
   type TableAvailability,
 } from "../reservations";
-import { queueReservationConfirmation } from "../notifications";
+import { requestReservation } from "../reservationRequests";
+import { queueReservationRequest } from "../notifications";
 import { shortConfirmationCode } from "../confirmationCode";
 
 export type ActionResult<T> =
@@ -73,8 +73,13 @@ export type ReservationConfirmation = {
   partySize: number;
   customerName: string;
   customerEmail: string;
-  /** true, wenn eine Bestätigungs-E-Mail versendet wird (SMTP eingerichtet). */
+  /** true, wenn eine E-Mail versendet wird (SMTP eingerichtet). */
   emailQueued: boolean;
+  /**
+   * Online-Reservationen sind Anfragen und starten als "angefragt". Erst die
+   * Freigabe durch das Restaurant macht daraus "bestaetigt".
+   */
+  status: "angefragt" | "bestaetigt" | "abgelehnt";
 };
 
 export async function submitReservation(
@@ -87,14 +92,13 @@ export async function submitReservation(
   }
 
   try {
-    const reservation = await createReservation({
-      ...parsed.data,
-      source: "ONLINE",
-    });
-    const emailQueued = queueReservationConfirmation(reservation);
+    // Online nur anfragen – gültig wird die Reservation erst mit der Freigabe.
+    const { reservation, decisionToken } = await requestReservation(parsed.data);
+    const emailQueued = queueReservationRequest(reservation, decisionToken);
     return {
       ok: true,
       data: {
+        status: "angefragt",
         confirmationCode: shortConfirmationCode(reservation.confirmationCode),
         tableNumber: reservation.table.number,
         date: parsed.data.date,

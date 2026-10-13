@@ -29,7 +29,8 @@ export function TableOverviewGrid({ tables }: { tables: TableOverviewDTO[] }) {
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {tables.map((table) => {
           const highlight = table.todaysReservations.find(
-            (r) => r.status === "CONFIRMED" || r.status === "ARRIVED",
+            (r) =>
+              r.status === "ANGEFRAGT" || r.status === "CONFIRMED" || r.status === "ARRIVED",
           );
           return (
             <button

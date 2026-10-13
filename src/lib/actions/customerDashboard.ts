@@ -90,7 +90,7 @@ export async function cancelMyReservationAction(
     if (!target) {
       return { ok: false, error: "Reservation wurde nicht gefunden." };
     }
-    if (target.status !== "CONFIRMED") {
+    if (target.status !== "CONFIRMED" && target.status !== "ANGEFRAGT") {
       return {
         ok: false,
         error: "Diese Reservation kann nicht mehr online storniert werden.",

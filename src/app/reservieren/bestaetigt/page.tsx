@@ -30,6 +30,12 @@ async function loadConfirmation(code: string): Promise<ReservationConfirmation |
   }
 
   return {
+    status:
+      reservation.status === "ANGEFRAGT"
+        ? "angefragt"
+        : reservation.status === "ABGELEHNT"
+          ? "abgelehnt"
+          : "bestaetigt",
     confirmationCode: normalized,
     tableNumber: reservation.table.number,
     date: toDateISO(reservation.start),

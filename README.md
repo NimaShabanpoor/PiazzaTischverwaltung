@@ -56,10 +56,15 @@ Passwort des bestehenden Benutzers, legt keine neuen Tische an).
 ## Funktionsübersicht
 
 **Kundenbereich (`/reservieren`)**
-Datum → Von/Bis-Zeit → Personenzahl → Tisch → Kontaktdaten → Bestätigung.
+Datum → Von/Bis-Zeit → Personenzahl → Tisch → Kontaktdaten → Anfrage senden.
 Jeder Schritt prüft serverseitig erneut (Zod), die Tischauswahl zeigt nur
-wirklich verfügbare Tische an und aktualisiert sich live. Nach der Buchung
-erhält der Gast eine **Bestätigungs-E-Mail** (siehe „E-Mail-Versand“).
+wirklich verfügbare Tische an und aktualisiert sich live.
+
+Online-Reservationen sind **Anfragen und keine fertigen Buchungen**: Sie
+werden mit dem Status `ANGEFRAGT` gespeichert, der Gast erhält sofort die
+E-Mail „Ihre Reservation wird bearbeitet“, und das Restaurant bekommt eine
+Anfrage-Mail mit den Knöpfen **Annehmen** und **Ablehnen** (siehe
+„Freigabe von Anfragen“). Erst danach folgt die Zusage oder die Absage.
 
 Online können höchstens **4 Personen** (`MAX_ONLINE_PARTY_SIZE`) direkt
 reservieren. Grössere Gruppen überspringen die Tischauswahl und senden eine
@@ -84,11 +89,42 @@ Bestätigungscode eingeben, eigene Reservationen sehen und stornieren.
   vorgesehen).
 - **Statistik** – Auslastung, Stosszeiten, Online- vs. Telefon-Anteil.
 
+Offene Anfragen erscheinen oben auf der Tischübersicht und können von dort
+direkt entschieden werden.
+
+### Freigabe von Anfragen
+
+Jede Online-Anfrage geht per E-Mail an `RESERVATION_APPROVER_EMAIL`
+(Standard: `malte.niederlaender@bhms.ch`). Die beiden Knöpfe in der Mail
+führen auf `/anfrage/<code>`; der Code steht in der URL und ersetzt dort das
+Login. Entschieden wird erst mit dem Klick **auf dieser Seite** – so lösen
+Mail-Vorschauen und Virenscanner, die Links im Hintergrund öffnen, nichts
+aus. Ein zweiter Klick ändert nichts mehr (nur `ANGEFRAGT` lässt sich
+entscheiden).
+
+Solange eine Anfrage offen ist, **hält sie den Tisch**: `ANGEFRAGT` gehört zu
+den belegenden Status (`ACTIVE_RESERVATION_STATUSES`) und steht auch in der
+Datenbank-Einschränkung `reservations_no_overlap`. Niemand sonst kann
+denselben Tisch im selben Zeitraum anfragen. Eine Absage (`ABGELEHNT`) gibt
+den Tisch sofort wieder frei.
+
+Reservationen, die der Chef selbst erfasst (telefonisch), sind wie bisher
+sofort bestätigt und brauchen keine Freigabe.
+
 ### E-Mail-Versand
 
-Versendet werden: Reservationsbestätigung (online und vom Chef erfasst),
-Eingangsbestätigung einer Gruppenanfrage, Absage einer Anfrage und optional
-ein Hinweis an das Restaurant bei neuen Anfragen (`ADMIN_NOTIFY_EMAIL`).
+Versendet werden: „Ihre Reservation wird bearbeitet“ an den Gast, die
+Anfrage mit Annehmen/Ablehnen an das Restaurant
+(`RESERVATION_APPROVER_EMAIL`), danach Zusage oder Absage an den Gast,
+ausserdem Eingangsbestätigung und Absage einer Gruppenanfrage sowie optional
+ein Hinweis an das Restaurant bei neuen Gruppenanfragen
+(`ADMIN_NOTIFY_EMAIL`).
+
+**Ohne SMTP-Zugangsdaten läuft der Freigabe-Ablauf ins Leere:** Das
+Restaurant erhält keine Anfrage und der Gast keine Antwort. Die Anfragen
+bleiben dann als „Wird bearbeitet“ liegen und müssen im Admin-Bereich
+entschieden werden. Für den Live-Betrieb sind die SMTP-Werte also
+Voraussetzung.
 
 Der Versand läuft über SMTP (`nodemailer`) und funktioniert mit dem Postfach
 des Webhosters, Gmail (App-Passwort) oder Outlook. Dafür in `.env`

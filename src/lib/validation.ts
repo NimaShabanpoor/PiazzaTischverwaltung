@@ -106,7 +106,9 @@ export const adminUpdateReservationSchema = z
       .optional(),
     customerEmail: z.string().trim().email().optional(),
     note: z.string().trim().max(500).nullable().optional(),
-    status: z.enum(["CONFIRMED", "ARRIVED", "CANCELLED", "COMPLETED"]).optional(),
+    status: z
+      .enum(["ANGEFRAGT", "CONFIRMED", "ARRIVED", "CANCELLED", "ABGELEHNT", "COMPLETED"])
+      .optional(),
   })
   .refine((d) => (d.startTime === undefined) === (d.endTime === undefined), {
     message: "Von- und Bis-Zeit müssen gemeinsam angegeben werden.",

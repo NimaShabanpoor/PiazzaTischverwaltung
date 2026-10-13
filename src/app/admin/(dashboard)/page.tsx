@@ -1,6 +1,7 @@
 import { getDashboardData } from "@/lib/adminData";
 import { TableOverviewGrid } from "@/components/admin/TableOverviewGrid";
 import { AutoRefresh } from "@/components/admin/AutoRefresh";
+import { OpenRequestsBanner } from "@/components/admin/OpenRequestsBanner";
 import { formatDateDeCH, formatWeekdayDe, zurichTodayISO } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export default async function AdminDashboardPage() {
           </span>
         </p>
       </div>
+      <OpenRequestsBanner />
       <TableOverviewGrid tables={tables} />
     </div>
   );

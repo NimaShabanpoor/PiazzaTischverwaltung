@@ -54,6 +54,10 @@ model Reservation {
   status           ReservationStatus @default(CONFIRMED)
   source           ReservationSource @default(ONLINE)
   note             String?
+  /// Geheimer Code im Freigabe-Link der Anfrage-Mail. Nach der Entscheidung null.
+  decisionToken    String?           @unique
+  /// Wann die Anfrage angenommen oder abgelehnt wurde.
+  decidedAt        DateTime?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -63,9 +67,13 @@ model Reservation {
 }
 
 enum ReservationStatus {
+  /// Online angefragt, wartet auf die Freigabe durch das Restaurant.
+  ANGEFRAGT
   CONFIRMED
   ARRIVED
   CANCELLED
+  /// Vom Restaurant abgelehnt (im Unterschied zu CANCELLED: nicht vom Gast).
+  ABGELEHNT
   COMPLETED
 }
 

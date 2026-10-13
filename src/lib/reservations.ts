@@ -10,7 +10,14 @@ import {
 } from "./time";
 import { getClosedDay } from "./closedDays";
 
+/**
+ * Status, die einen Tisch belegen. ANGEFRAGT gehoert dazu: Eine noch nicht
+ * freigegebene Online-Anfrage haelt den Tisch, damit niemand sonst dieselbe
+ * Zeit anfragen kann. Dieselbe Liste steht in der Datenbank-Einschraenkung
+ * `reservations_no_overlap`.
+ */
 export const ACTIVE_RESERVATION_STATUSES: ReservationStatus[] = [
+  ReservationStatus.ANGEFRAGT,
   ReservationStatus.CONFIRMED,
   ReservationStatus.ARRIVED,
 ];
@@ -233,6 +240,13 @@ export type ReservationWriteOptions = {
    * eintragen, z.B. für einen privaten Anlass.
    */
   enforceClosedDay?: boolean;
+  /**
+   * Status der neuen Reservation. Standard CONFIRMED (vom Chef erfasst oder
+   * telefonisch). Online-Anfragen werden mit ANGEFRAGT angelegt.
+   */
+  status?: ReservationStatus;
+  /** Einmaliger Code für den Freigabe-Link – nur bei einer Anfrage. */
+  decisionToken?: string;
 };
 
 export async function createReservation(
@@ -304,6 +318,8 @@ export async function createReservation(
           customerEmail: input.customerEmail,
           note: input.note,
           source: input.source ?? "ONLINE",
+          status: options.status ?? ReservationStatus.CONFIRMED,
+          decisionToken: options.decisionToken,
         },
         include: { table: true },
       });

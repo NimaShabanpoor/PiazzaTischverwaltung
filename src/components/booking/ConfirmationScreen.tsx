@@ -1,4 +1,4 @@
-import { CheckCircle2, Mail } from "lucide-react";
+import { CheckCircle2, Clock, Mail, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { formatDateDeCH, formatWeekdayDe } from "@/lib/time";
@@ -9,14 +9,32 @@ export function ConfirmationScreen({
 }: {
   confirmation: ReservationConfirmation;
 }) {
+  const firstName = confirmation.customerName.split(" ")[0];
+  const pending = confirmation.status === "angefragt";
+  const declined = confirmation.status === "abgelehnt";
+
   return (
     <div className="flex flex-col items-center py-6 text-center">
-      <CheckCircle2 size={64} className="text-status-free" />
+      {pending ? (
+        <Clock size={64} className="text-status-occupied" />
+      ) : declined ? (
+        <XCircle size={64} className="text-status-reserved" />
+      ) : (
+        <CheckCircle2 size={64} className="text-status-free" />
+      )}
       <h2 className="mt-4 font-display text-3xl font-semibold text-brand-navy">
-        Reservation bestätigt!
+        {pending
+          ? "Ihre Reservation wird bearbeitet"
+          : declined
+            ? "Reservation nicht möglich"
+            : "Reservation bestätigt!"}
       </h2>
       <p className="mt-2 max-w-md text-brand-navy/70">
-        Vielen Dank, {confirmation.customerName.split(" ")[0]}. Wir freuen uns auf Ihren Besuch.
+        {pending
+          ? `Vielen Dank, ${firstName}. Wir prüfen Ihre Anfrage und melden uns in Kürze per E-Mail – erst dann ist die Reservation verbindlich.`
+          : declined
+            ? `Leider können wir Ihnen diesen Tisch nicht anbieten, ${firstName}. Gerne finden wir einen anderen Termin für Sie.`
+            : `Vielen Dank, ${firstName}. Wir freuen uns auf Ihren Besuch.`}
       </p>
 
       <div className="mt-6 w-full max-w-sm rounded-2xl border-2 border-dashed border-brand-teal bg-white p-6">
@@ -42,7 +60,18 @@ export function ConfirmationScreen({
         <p className="mt-5 flex max-w-sm items-center justify-center gap-2 rounded-xl bg-status-free-bg px-4 py-3 text-sm text-brand-navy">
           <Mail size={18} className="shrink-0 text-status-free" />
           <span>
-            Eine Bestätigung wurde an <strong>{confirmation.customerEmail}</strong> gesendet.
+            {pending ? (
+              <>
+                Eine Eingangsbestätigung wurde an{" "}
+                <strong>{confirmation.customerEmail}</strong> gesendet. Die Zu- oder Absage
+                folgt an dieselbe Adresse.
+              </>
+            ) : (
+              <>
+                Eine Bestätigung wurde an <strong>{confirmation.customerEmail}</strong>{" "}
+                gesendet.
+              </>
+            )}
           </span>
         </p>
       )}

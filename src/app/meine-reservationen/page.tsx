@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import clsx from "clsx";
 import { ArrowLeft, Loader2, LogOut, Search, Users, XCircle } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/Button";
@@ -15,9 +16,11 @@ import {
 import { formatDateDeCH, formatWeekdayDe, toDateISO, toTimeHHmm } from "@/lib/time";
 
 const STATUS_LABEL: Record<string, string> = {
+  ANGEFRAGT: "Wird bearbeitet",
   CONFIRMED: "Bestätigt",
   ARRIVED: "Angekommen",
   CANCELLED: "Storniert",
+  ABGELEHNT: "Abgelehnt",
   COMPLETED: "Abgeschlossen",
 };
 
@@ -56,8 +59,14 @@ export default function MeineReservationenPage() {
     );
   }
 
-  const active = reservations?.filter((r) => r.status === "CONFIRMED" || r.status === "ARRIVED") ?? [];
-  const past = reservations?.filter((r) => r.status === "CANCELLED" || r.status === "COMPLETED") ?? [];
+  const active =
+    reservations?.filter(
+      (r) => r.status === "ANGEFRAGT" || r.status === "CONFIRMED" || r.status === "ARRIVED",
+    ) ?? [];
+  const past =
+    reservations?.filter(
+      (r) => r.status === "CANCELLED" || r.status === "ABGELEHNT" || r.status === "COMPLETED",
+    ) ?? [];
 
   return (
     <div className="min-h-screen bg-brand-cream">
@@ -233,12 +242,21 @@ function ReservationCard({
             <p className="mt-1 text-sm italic text-brand-navy/50">„{reservation.note}“</p>
           )}
         </div>
-        <span className="rounded-full bg-status-free-bg px-3 py-1 text-sm font-medium text-status-free">
+        <span
+          className={clsx(
+            "rounded-full px-3 py-1 text-sm font-medium",
+            reservation.status === "ANGEFRAGT"
+              ? "bg-status-occupied-bg text-status-occupied"
+              : reservation.status === "ABGELEHNT" || reservation.status === "CANCELLED"
+                ? "bg-status-reserved-bg text-status-reserved"
+                : "bg-status-free-bg text-status-free",
+          )}
+        >
           {STATUS_LABEL[reservation.status]}
         </span>
       </div>
 
-      {reservation.status === "CONFIRMED" && (
+      {(reservation.status === "CONFIRMED" || reservation.status === "ANGEFRAGT") && (
         <div className="mt-4">
           <Button variant="ghost" size="md" onClick={() => setConfirmOpen(true)}>
             <XCircle size={16} />

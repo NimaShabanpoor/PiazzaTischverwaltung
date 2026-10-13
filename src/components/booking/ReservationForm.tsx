@@ -366,14 +366,16 @@ export function ReservationForm({
           >
             {isPending ? (
               <Loader2 size={18} className="animate-spin" />
-            ) : isRequest ? (
-              "Anfrage senden"
             ) : (
-              "Reservation bestätigen"
+              "Anfrage senden"
             )}
           </Button>
 
-          {!canSubmit && (
+          {canSubmit ? (
+            <p className="mt-3 text-center text-xs text-white/70">
+              Ihre Anfrage wird vom Restaurant geprüft – die Bestätigung kommt per E-Mail.
+            </p>
+          ) : (
             <p className="mt-3 text-center text-xs text-white/70">
               {closedDay
                 ? "An diesem Tag ist geschlossen – bitte anderes Datum wählen."
