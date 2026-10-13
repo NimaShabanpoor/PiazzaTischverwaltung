@@ -95,7 +95,7 @@ direkt entschieden werden.
 ### Freigabe von Anfragen
 
 Jede Online-Anfrage geht per E-Mail an `RESERVATION_APPROVER_EMAIL`
-(Standard: `nima.shabanpoor20@gmail.com`). Die beiden Knöpfe in der Mail
+(Standard: `Nima.shabanpoor20@gmail.com`). Die beiden Knöpfe in der Mail
 führen auf `/anfrage/<code>`; der Code steht in der URL und ersetzt dort das
 Login. Entschieden wird erst mit dem Klick **auf dieser Seite** – so lösen
 Mail-Vorschauen und Virenscanner, die Links im Hintergrund öffnen, nichts
