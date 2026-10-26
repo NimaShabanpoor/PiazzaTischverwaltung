@@ -67,7 +67,12 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
     return false;
   }
   try {
-    await getTransporter().sendMail({ from: senderAddress(), ...message });
+    await getTransporter().sendMail({
+      from: senderAddress(),
+      // Antworten von Gästen landen direkt beim Restaurant.
+      replyTo: RESTAURANT_NOTIFY_EMAIL,
+      ...message,
+    });
     return true;
   } catch (err) {
     console.error(`[mail] Versand von „${message.subject}" fehlgeschlagen`, err);

@@ -39,8 +39,8 @@ export const RESTAURANT_INFO = {
   city: "Zürich",
   addressLine: "Vulkanstrasse 106, 8048 Zürich",
   phone: "076 419 00 60",
-  email: "Reservierungen@piazza106events.ch",
+  email: "malte.niederlaender@bhms.ch",
 };
 
 /** Erhält alle Reservationen: Online-Anfragen zur Freigabe und Gruppenanfragen. */
-export const RESTAURANT_NOTIFY_EMAIL = "malte.niederlaender@bhms.ch";
+export const RESTAURANT_NOTIFY_EMAIL = RESTAURANT_INFO.email;

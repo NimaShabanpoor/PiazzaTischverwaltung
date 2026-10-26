@@ -117,7 +117,7 @@ function InfoCard({
         <h3 className="font-display text-lg font-semibold text-brand-navy">{title}</h3>
       </div>
       {lines.map((line) => (
-        <p key={line} className="text-brand-navy/70">
+        <p key={line} className="break-words text-brand-navy/70">
           {line}
         </p>
       ))}
