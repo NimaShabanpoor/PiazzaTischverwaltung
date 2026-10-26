@@ -41,3 +41,6 @@ export const RESTAURANT_INFO = {
   phone: "076 419 00 60",
   email: "Reservierungen@piazza106events.ch",
 };
+
+/** Erhält alle Reservationen: Online-Anfragen zur Freigabe und Gruppenanfragen. */
+export const RESTAURANT_NOTIFY_EMAIL = "malte.niederlaender@bhms.ch";

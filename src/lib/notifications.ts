@@ -115,9 +115,7 @@ export function queueGroupRequestReceived(request: GroupRequestForMail): boolean
   const adminAddress = adminNotifyAddress();
   after(async () => {
     await sendMail({ to: request.customerEmail, ...groupRequestReceivedEmail(data) });
-    if (adminAddress) {
-      await sendMail({ to: adminAddress, ...groupRequestAdminEmail(data) });
-    }
+    await sendMail({ to: adminAddress, ...groupRequestAdminEmail(data) });
   });
   return isMailConfigured();
 }

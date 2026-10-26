@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { RESTAURANT_NOTIFY_EMAIL } from "./constants";
 
 export type MailMessage = {
   to: string;
@@ -21,17 +22,19 @@ function senderAddress(): string | undefined {
   return process.env.MAIL_FROM?.trim() || process.env.SMTP_USER;
 }
 
-/** Optionale Adresse des Restaurants, die über neue Gruppenanfragen informiert wird. */
-export function adminNotifyAddress(): string | null {
-  return process.env.ADMIN_NOTIFY_EMAIL?.trim() || null;
+/**
+ * Restaurant-Adresse für alle Reservationen: Online-Anfragen zur Freigabe und
+ * Hinweise zu Gruppenanfragen. Bewusst fest im Code (constants.ts), damit eine
+ * alte ADMIN_NOTIFY_EMAIL / RESERVATION_APPROVER_EMAIL beim Hosting sie nicht
+ * überschreibt.
+ */
+export function adminNotifyAddress(): string {
+  return RESTAURANT_NOTIFY_EMAIL;
 }
 
-/**
- * Adresse, die jede Online-Anfrage zur Freigabe erhält. Über
- * RESERVATION_APPROVER_EMAIL in `.env` änderbar.
- */
+/** Adresse, die jede Online-Anfrage zur Freigabe erhält. */
 export function approverAddress(): string {
-  return process.env.RESERVATION_APPROVER_EMAIL?.trim() || "nima.shabanpoor20@gmail.com";
+  return RESTAURANT_NOTIFY_EMAIL;
 }
 
 let transporter: Transporter | null = null;

@@ -94,8 +94,8 @@ direkt entschieden werden.
 
 ### Freigabe von Anfragen
 
-Jede Online-Anfrage geht per E-Mail an `RESERVATION_APPROVER_EMAIL`
-(Standard: `nima.shabanpoor20@gmail.com`). Die beiden Knöpfe in der Mail
+Jede Online-Anfrage geht per E-Mail an `malte.niederlaender@bhms.ch`
+(`RESTAURANT_NOTIFY_EMAIL` in `src/lib/constants.ts`). Die beiden Knöpfe in der Mail
 führen auf `/anfrage/<code>`; der Code steht in der URL und ersetzt dort das
 Login. Entschieden wird erst mit dem Klick **auf dieser Seite** – so lösen
 Mail-Vorschauen und Virenscanner, die Links im Hintergrund öffnen, nichts
@@ -115,10 +115,10 @@ sofort bestätigt und brauchen keine Freigabe.
 
 Versendet werden: „Ihre Reservation wird bearbeitet“ an den Gast, die
 Anfrage mit Annehmen/Ablehnen an das Restaurant
-(`RESERVATION_APPROVER_EMAIL`), danach Zusage oder Absage an den Gast,
-ausserdem Eingangsbestätigung und Absage einer Gruppenanfrage sowie optional
+(`RESTAURANT_NOTIFY_EMAIL`), danach Zusage oder Absage an den Gast,
+ausserdem Eingangsbestätigung und Absage einer Gruppenanfrage sowie
 ein Hinweis an das Restaurant bei neuen Gruppenanfragen
-(`ADMIN_NOTIFY_EMAIL`).
+(ebenfalls `RESTAURANT_NOTIFY_EMAIL`).
 
 **Ohne SMTP-Zugangsdaten läuft der Freigabe-Ablauf ins Leere:** Das
 Restaurant erhält keine Anfrage und der Gast keine Antwort. Die Anfragen
